@@ -158,4 +158,14 @@ do $$ begin
   exception when insufficient_privilege then null; end;
 end $$;
 
+-- Offline: derselbe Verkauf (gleiche client_id) wird nur einmal gespeichert
+insert into sales (vehicle, client_id) values ('Offline-Golf', '11111111-1111-1111-1111-111111111111');
+do $$ begin
+  begin
+    insert into sales (vehicle, client_id) values ('Offline-Golf', '11111111-1111-1111-1111-111111111111');
+    assert false, 'Doppelter Offline-Verkauf';
+  exception when unique_violation then null; end;
+  assert (select count(*) from sales where vehicle = 'Offline-Golf') = 1, 'Offline-Verkauf doppelt';
+end $$;
+
 select 'ALLE SQL-TESTS OK' as result;

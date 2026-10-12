@@ -2,7 +2,7 @@ import { Link, Redirect, Slot, usePathname } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, Logo } from '@/components/ui';
+import { colors, Logo, ThemeToggle } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 
 const NAV = [
@@ -35,6 +35,7 @@ export default function AdminLayout() {
                 </Link>
               );
             })}
+            <ThemeToggle />
             <Text onPress={signOut} style={styles.navItem} accessibilityRole="button">Abmelden</Text>
           </View>
         </View>

@@ -17,14 +17,45 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" />
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <script>
+      // Gespeicherte Wahl (Hell/Dunkel) vor dem ersten Zeichnen setzen, damit nichts aufblitzt.
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    </script>
     <style id="expo-reset">
+      :root {
+        --c-bg: #f4f4f4; --c-surface: #ffffff; --c-fg: #1d1d1b; --c-muted: #54595f; --c-line: #e2e2e2;
+        --c-accent: #e30614; --c-accentSoft: #fdeced; --c-dark: #1d1d1b; --c-good: #1f7a4d; --c-goodSoft: #e2f3ea;
+        --c-danger: #b42318; --c-dangerSoft: #fdecea; --c-gold: #b8891a; --c-silver: #7c8894; --c-bronze: #a2603a;
+        --c-logoPlate: transparent;
+        color-scheme: light;
+      }
+      /* Dunkler Modus: folgt dem Handy, außer man wählt in der App fest Hell oder Dunkel (data-theme). */
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme='light']) {
+          --c-bg: #121212; --c-surface: #1e1e1f; --c-fg: #f2f2f2; --c-muted: #a3a7ac; --c-line: #343537;
+          --c-accent: #f0232f; --c-accentSoft: #3a1618; --c-dark: #2a2b2d; --c-good: #4cc38a; --c-goodSoft: #15301f;
+          --c-danger: #ff6b5e; --c-dangerSoft: #3a1714; --c-gold: #e0b13c; --c-silver: #a9b4bf; --c-bronze: #d08a5f;
+          --c-logoPlate: #ffffff;
+          color-scheme: dark;
+        }
+      }
+      :root[data-theme='dark'] {
+        --c-bg: #121212; --c-surface: #1e1e1f; --c-fg: #f2f2f2; --c-muted: #a3a7ac; --c-line: #343537;
+        --c-accent: #f0232f; --c-accentSoft: #3a1618; --c-dark: #2a2b2d; --c-good: #4cc38a; --c-goodSoft: #15301f;
+        --c-danger: #ff6b5e; --c-dangerSoft: #3a1714; --c-gold: #e0b13c; --c-silver: #a9b4bf; --c-bronze: #d08a5f;
+        --c-logoPlate: #ffffff;
+        color-scheme: dark;
+      }
       html,
       body {
         height: 100%;
       }
       body {
         overflow: hidden;
-        background-color: #f4f4f4;
+        background-color: var(--c-bg);
       }
       /* Hausschrift der Autowelt Prusseit */
       #root,
@@ -42,5 +73,13 @@
   <body>
     <noscript>Bitte JavaScript aktivieren, um das Scoreboard zu nutzen.</noscript>
     <div id="root"></div>
+    <script>
+      // Offline-Start: App-Dateien im Handy vorhalten.
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('/sw.js').catch(function () {});
+        });
+      }
+    </script>
   </body>
 </html>

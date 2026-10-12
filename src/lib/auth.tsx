@@ -1,6 +1,7 @@
 import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { kv } from './pending';
 import { supabase } from './supabase';
 
 export type Profile = {
@@ -20,6 +21,21 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | null>(null);
 
+function readCachedProfile(userId: string): Profile | null {
+  try {
+    const p = JSON.parse(kv.getItem('profile') ?? 'null') as Profile | null;
+    return p?.id === userId ? p : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedProfile(p: Profile | null) {
+  try {
+    kv.setItem('profile', JSON.stringify(p));
+  } catch {}
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -31,26 +47,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setProfile(null);
       return;
     }
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, full_name, role, status')
-      .eq('id', s.user.id)
-      .maybeSingle();
-    if (error) console.warn('Profil konnte nicht geladen werden', error.message);
-    else loadedFor.current = s.user.id;
+    // Ohne Netz nicht ewig warten: nach 6 Sekunden gilt die Anfrage als gescheitert.
+    const query = supabase.from('profiles').select('id, full_name, role, status').eq('id', s.user.id).maybeSingle();
+    const timeout = new Promise<{ data: null; error: { message: string } }>((resolve) =>
+      setTimeout(() => resolve({ data: null, error: { message: 'Zeitüberschreitung' } }), 6000),
+    );
+    const { data, error } = await Promise.race([query.then((r) => r), timeout]);
+    if (error) {
+      console.warn('Profil konnte nicht geladen werden', error.message);
+      // Ohne Netz mit dem zuletzt geladenen Profil weiterarbeiten (Offline eintragen).
+      setProfile(readCachedProfile(s.user.id));
+      return;
+    }
+    loadedFor.current = s.user.id;
+    writeCachedProfile((data as Profile | null) ?? null);
     setProfile((data as Profile | null) ?? null);
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data }) => {
-      setSession(data.session);
-      await loadProfile(data.session);
-      setLoading(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        setSession(data.session);
+        await loadProfile(data.session);
+      })
+      .finally(() => setLoading(false));
     const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       if (event === 'SIGNED_OUT') {
         loadedFor.current = null;
+        writeCachedProfile(null);
         setProfile(null);
         return;
       }

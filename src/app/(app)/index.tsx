@@ -1,18 +1,19 @@
 import { Link, Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BrandBar, Button, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
+import { BrandBar, Button, ThemeToggle, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
+import { usePendingSales } from '@/lib/pending';
 import { KudosFeed } from '@/components/KudosFeed';
 import { BADGES, badgeIcons, type BadgeKey } from '@/lib/badges';
 import { fetchBadges, fetchFeed, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
-import { eur, firstName, monthLabel, monthStart } from '@/lib/format';
+import { dateLabel, eur, firstName, monthLabel, monthStart } from '@/lib/format';
 import { gapToNextRank, goalProgress } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
 
 export default function Scoreboard() {
   const { profile, signOut } = useAuth();
-  const { saved } = useLocalSearchParams<{ saved?: string }>();
+  const { saved, queued } = useLocalSearchParams<{ saved?: string; queued?: string }>();
   const month = monthStart();
   const { data, error, reload } = useLive(async () => {
     const [rows, team, ratings, badges, feed] = await Promise.all([
@@ -25,9 +26,43 @@ export default function Scoreboard() {
     return { rows, team, ratings, badges, feed };
   }, [month]);
   const rows = data?.rows;
+  const { pending, flush, discard } = usePendingSales(profile?.id, reload);
 
   if (profile?.role === 'admin') return <Redirect href="/admin" />;
-  if (!rows) return error ? <Screen><Notice tone="danger">{error}</Notice></Screen> : <Loading />;
+  const pendingBox = pending.length > 0 && (
+    <View style={styles.pending}>
+          <Text style={styles.pendingTitle}>
+            {pending.length === 1 ? '1 Verkauf wartet' : `${pending.length} Verkäufe warten`} auf Übertragung
+          </Text>
+          <Text style={styles.pendingText}>
+            {queued ? 'Kein Netz: Der Verkauf ist im Handy gespeichert. ' : ''}
+            Er wird automatisch gesendet, sobald du wieder Netz hast. Bis dahin zählt er noch nicht in der Rangliste.
+          </Text>
+          {pending.map((p) => (
+            <Text key={p.client_id} style={styles.pendingItem}>
+              • {p.vehicle} ({dateLabel(p.sold_on)}){p.error ? ' – wurde abgelehnt, bitte beim Admin melden' : ''}
+              {p.error ? (
+                <Text onPress={() => discard(p.client_id)} style={styles.link}>
+                  {'  '}Entfernen
+                </Text>
+              ) : null}
+            </Text>
+          ))}
+          <Button small variant="ghost" title="Jetzt senden" onPress={flush} />
+        </View>
+  );
+
+  if (!rows)
+    return error ? (
+      <Screen>
+        <BrandBar />
+        <Notice tone="danger">Keine Verbindung. Rangliste und Ziele erscheinen, sobald du wieder Netz hast. Verkäufe kannst du trotzdem eintragen.</Notice>
+        {pendingBox}
+        <Button title="Verkauf eintragen" onPress={() => router.push('/neu')} />
+      </Screen>
+    ) : (
+      <Loading />
+    );
 
   const me = rows.find((r) => r.seller_id === profile?.id);
   const gap = profile ? gapToNextRank(rows, profile.id) : null;
@@ -39,7 +74,14 @@ export default function Scoreboard() {
 
   return (
     <Screen>
-      <BrandBar right={<Text onPress={signOut} style={styles.link} accessibilityRole="button">Abmelden</Text>} />
+      <BrandBar
+        right={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <ThemeToggle />
+            <Text onPress={signOut} style={styles.link} accessibilityRole="button">Abmelden</Text>
+          </View>
+        }
+      />
       <Text style={styles.hello}>Hallo {firstName(profile?.full_name ?? '')}</Text>
 
       {me && (
@@ -61,7 +103,8 @@ export default function Scoreboard() {
         </View>
       )}
 
-      {saved ? <Notice tone="good">Gespeichert: +{eur(Number(saved))} Provision.</Notice> : null}
+      {saved && pending.length === 0 ? <Notice tone="good">Gespeichert{Number(saved) ? `: +${eur(Number(saved))} Provision` : ''}.</Notice> : null}
+      {pendingBox}
 
       <View style={styles.gap}>
         <Text style={styles.gapText}>
@@ -171,6 +214,10 @@ const styles = StyleSheet.create({
   badgeIcon: { fontSize: 16 },
   badgeLabel: { fontWeight: '700', color: colors.fg, fontSize: 13 },
   icons: { fontWeight: '400' },
+  pending: { borderWidth: 1, borderColor: colors.gold, backgroundColor: colors.surface, borderRadius: 8, padding: 12, gap: 6 },
+  pendingTitle: { fontWeight: '800', color: colors.fg },
+  pendingText: { color: colors.muted },
+  pendingItem: { color: colors.fg },
   stars: { color: '#b07a00', fontWeight: '600', fontVariant: ['tabular-nums'] },
   eur: { color: colors.muted, minWidth: 80, textAlign: 'right', fontVariant: ['tabular-nums'] },
 });

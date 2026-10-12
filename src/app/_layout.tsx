@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Text } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { Screen, H1, Muted } from '@/components/ui';
+import { colors, Screen, H1, Muted } from '@/components/ui';
 import { AuthProvider } from '@/lib/auth';
 import { isConfigured } from '@/lib/supabase';
 
@@ -26,7 +26,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }} />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
       </AuthProvider>
     </SafeAreaProvider>
   );

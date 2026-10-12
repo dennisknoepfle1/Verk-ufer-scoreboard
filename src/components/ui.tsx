@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   Image,
   Pressable,
   ScrollView,
@@ -13,8 +14,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { THEME_LABEL, useThemePref } from '@/lib/theme';
+
 // Farben der Autowelt Prusseit (autowelt-prusseit.de): Rot #E30614, Anthrazit #54595F, Schwarz.
-export const colors = {
+// Hell (Standard). Die dunkle Variante steht in public/index.html und wird im Web über CSS-Variablen umgeschaltet.
+const light = {
   bg: '#f4f4f4',
   surface: '#ffffff',
   fg: '#1d1d1b',
@@ -30,7 +34,13 @@ export const colors = {
   gold: '#b8891a',
   silver: '#7c8894',
   bronze: '#a2603a',
+  logoPlate: 'transparent',
 };
+
+export const colors: typeof light =
+  Platform.OS === 'web'
+    ? (Object.fromEntries(Object.keys(light).map((k) => [k, `var(--c-${k})`])) as typeof light)
+    : light;
 
 export const rankColor = (rank: number) =>
   rank === 1 ? colors.gold : rank === 2 ? colors.silver : rank === 3 ? colors.bronze : colors.fg;
@@ -126,6 +136,7 @@ export function Loading() {
 }
 
 const styles = StyleSheet.create({
+  themeToggle: { color: colors.muted, fontWeight: '600', fontSize: 13 },
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { flexGrow: 1 },
   inner: { width: '100%', alignSelf: 'center', padding: 16, gap: 14 },
@@ -164,7 +175,12 @@ const logo = require('../../assets/brand/logo.png');
 
 /** Logo der Autowelt Prusseit (Original 280 × 80 px). */
 export function Logo({ height = 44 }: { height?: number }) {
-  return <Image source={logo} accessibilityLabel="Autowelt Prusseit" style={{ height, width: (height * 280) / 80 }} resizeMode="contain" />;
+  // Im dunklen Modus steht das Logo auf einer weißen Fläche, damit die schwarzen Teile sichtbar bleiben.
+  return (
+    <View style={{ backgroundColor: colors.logoPlate, borderRadius: 4, padding: 3, alignSelf: 'flex-start' }}>
+      <Image source={logo} accessibilityLabel="Autowelt Prusseit" style={{ height, width: (height * 280) / 80 }} resizeMode="contain" />
+    </View>
+  );
 }
 
 /** Weiße Kopfzeile mit Logo und rotem Abschluss, wie auf autowelt-prusseit.de. */
@@ -174,5 +190,17 @@ export function BrandBar({ right }: { right?: ReactNode }) {
       <Logo height={40} />
       {right}
     </View>
+  );
+}
+
+/** Umschalter Automatisch → Dunkel → Hell (nur im Web). */
+export function ThemeToggle() {
+  const { pref, cycle } = useThemePref();
+  if (Platform.OS !== 'web') return null;
+  const icon = pref === 'dark' ? '🌙' : pref === 'light' ? '☀️' : '🌓';
+  return (
+    <Text onPress={cycle} accessibilityRole="button" accessibilityLabel={`Darstellung: ${THEME_LABEL[pref]}. Tippen zum Wechseln`} style={styles.themeToggle}>
+      {icon} {THEME_LABEL[pref]}
+    </Text>
   );
 }

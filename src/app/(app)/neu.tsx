@@ -5,9 +5,12 @@ import { BrandBar, Button, Card, Field, H1, Muted, Notice, Screen } from '@/comp
 import { fetchCurrentRates, type RatesRow } from '@/lib/data';
 import { eurCents } from '@/lib/format';
 import { calcCommission, parseEuro } from '@/lib/scoring';
-import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/lib/auth';
+import { enqueue, newClientId, type PendingSale } from '@/lib/offline';
+import { isOnline, kv, sendSale } from '@/lib/pending';
 
 export default function NewSale() {
+  const { profile } = useAuth();
   const [rates, setRates] = useState<RatesRow | null>(null);
   const [vehicle, setVehicle] = useState('');
   const [bank, setBank] = useState('');
@@ -33,18 +36,29 @@ export default function NewSale() {
       setError('Bitte das Fahrzeug angeben.');
       return;
     }
+    if (!profile) return;
+    const now = new Date();
+    const sale: PendingSale = {
+      client_id: newClientId(),
+      user_id: profile.id,
+      vehicle: vehicle.trim(),
+      ...input,
+      // Verkaufstag ist der Tag der Eingabe, auch wenn erst später übertragen wird.
+      sold_on: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
+      queued_at: now.toISOString(),
+    };
     setBusy(true);
-    const { data, error: err } = await supabase
-      .from('sales')
-      .insert({ vehicle: vehicle.trim(), ...input })
-      .select('commission')
-      .single();
+    const result = isOnline() ? await sendSale(sale) : 'offline';
     setBusy(false);
-    if (err) {
-      setError('Speichern hat nicht geklappt. Prüfe deine Verbindung und versuche es noch einmal.');
-      return;
+    if (result === 'ok' || result === 'duplicate') {
+      router.replace({ pathname: '/', params: { saved: String(preview ?? '') } });
+    } else if (result === 'offline') {
+      // Kein Netz: im Handy speichern und später automatisch übertragen.
+      enqueue(kv, sale);
+      router.replace({ pathname: '/', params: { queued: '1' } });
+    } else {
+      setError('Speichern hat nicht geklappt. Bitte prüfe die Angaben und versuche es noch einmal.');
     }
-    router.replace({ pathname: '/', params: { saved: String(data.commission) } });
   }
 
   return (
