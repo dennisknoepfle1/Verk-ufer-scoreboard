@@ -168,4 +168,36 @@ do $$ begin
   assert (select count(*) from sales where vehicle = 'Offline-Golf') = 1, 'Offline-Verkauf doppelt';
 end $$;
 
+
+-- Push: eigenes Abo anlegen, fremde Abos unsichtbar, Schlüssel nur für service_role, neuer Verkauf ruft notify-sale
+reset role;
+truncate net.calls;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+insert into push_subscriptions (endpoint, user_id, p256dh, auth) values ('https://push/1', '00000000-0000-0000-0000-000000000001', 'k', 'a');
+do $$ begin
+  begin
+    insert into push_subscriptions (endpoint, user_id, p256dh, auth) values ('https://push/x', '00000000-0000-0000-0000-000000000002', 'k', 'a');
+    assert false, 'Fremdes Abo hätte scheitern müssen';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform push_vapid_private_key();
+    assert false, 'Schlüssel darf nicht lesbar sein';
+  exception when insufficient_privilege then null; end;
+end $$;
+insert into sales (vehicle) values ('Push-Test');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false) is not null as login \gset
+do $$ begin
+  assert (select count(*) from push_subscriptions) = 0, 'Laura sieht fremde Abos';
+end $$;
+reset role;
+do $$ begin
+  assert (select count(*) from net.calls where url like '%/functions/v1/notify-sale' and body ? 'sale_id') = 1, 'notify-sale nicht aufgerufen';
+end $$;
+set role service_role;
+do $$ begin
+  assert public.push_vapid_private_key() = 'test-key', 'service_role muss den Schlüssel lesen';
+end $$;
+reset role;
+\echo 'PUSH OK'
 select 'ALLE SQL-TESTS OK' as result;

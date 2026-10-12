@@ -5,6 +5,7 @@ import { KudosFeed } from '@/components/KudosFeed';
 import { MonthPicker } from '@/components/MonthPicker';
 import { StarInput } from '@/components/Stars';
 import { AnimatedValue } from '@/components/CountUp';
+import { PushCard } from '@/components/PushCard';
 import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchFeed, fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
 import { dateLabel, eur, monthStart, shiftMonth } from '@/lib/format';
@@ -67,6 +68,7 @@ export default function AdminSales() {
           </Card>
         ))}
       </View>
+      <PushCard />
       <Card>
         <H2>Neueste Verkäufe feiern</H2>
         <KudosFeed items={data?.feed ?? []} onChange={reload} />

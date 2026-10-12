@@ -6,6 +6,7 @@ import { BrandBar, Button, ThemeToggle, ui, colors, H2, Loading, Meter, Muted, N
 import { useAuth } from '@/lib/auth';
 import { usePendingSales } from '@/lib/pending';
 import { KudosFeed } from '@/components/KudosFeed';
+import { PushCard } from '@/components/PushCard';
 import { BADGES, badgeIcons, type BadgeKey } from '@/lib/badges';
 import { fetchBadges, fetchFeed, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { dateLabel, eur, firstName, monthLabel, monthStart } from '@/lib/format';
@@ -165,6 +166,7 @@ export default function Scoreboard() {
       )}
 
       <Button title="Verkauf eintragen" onPress={() => router.push('/neu')} />
+      <PushCard />
 
       <H2>Rangliste {monthLabel(month)}</H2>
       <View>

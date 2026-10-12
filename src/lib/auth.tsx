@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { kv } from './pending';
+import { disablePush } from './push';
 import { supabase } from './supabase';
 
 export type Profile = {
@@ -96,6 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     profile,
     refreshProfile: () => loadProfile(session),
     signOut: async () => {
+      // Dieses Gerät soll nach dem Abmelden keine Verkaufs-Nachrichten mehr bekommen.
+      await Promise.race([disablePush().catch(() => {}), new Promise((r) => setTimeout(r, 3000))]);
       await supabase.auth.signOut();
     },
   };
