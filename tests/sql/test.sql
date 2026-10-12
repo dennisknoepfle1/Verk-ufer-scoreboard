@@ -1,7 +1,6 @@
 -- Läuft nach auth_stub.sql und der Migration gegen eine leere lokale Datenbank.
 \set ON_ERROR_STOP on
 grant select, insert, update, delete on all tables in schema public to authenticated;
-grant execute on all functions in schema public to authenticated;
 
 insert into auth.users (id, email, raw_user_meta_data) values
   ('00000000-0000-0000-0000-00000000000a', 'admin@x', '{"full_name":"Dennis"}'),

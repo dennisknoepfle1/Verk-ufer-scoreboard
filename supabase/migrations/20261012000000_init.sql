@@ -64,7 +64,7 @@ $$;
 create function public.calc_commission(
   p_bank numeric, p_winter numeric, p_registration numeric, r public.commission_rates
 ) returns numeric
-language sql immutable as $$
+language sql immutable set search_path = public as $$
   select round(
     r.base_amount
     + p_bank * r.bank_pct / 100

@@ -26,9 +26,10 @@ Neue Konten sind erst nach Freigabe durch einen Admin aktiv. Zugriffsregeln (RLS
 
 ## Einrichten
 
-1. **Supabase-Projekt** (Region Frankfurt). Im SQL-Editor den Inhalt von `supabase/migrations/20261012000000_init.sql` ausführen.
+1. **Supabase-Projekt** (EU-Region). Im SQL-Editor die Dateien aus `supabase/migrations/` der Reihe nach ausführen.
+   Das Live-Projekt ist bereits eingerichtet; seine öffentlichen Werte stehen in `.env.production`.
 2. Unter *Authentication > URL Configuration* die Web-Adresse der App als Site URL eintragen.
-3. `.env.example` nach `.env` kopieren und URL sowie anon key aus *Project Settings > API* eintragen.
+3. Für ein eigenes Entwicklungsprojekt `.env.example` nach `.env` kopieren und URL sowie Publishable Key aus *Project Settings > API* eintragen.
 4. `npm install`, dann `npm run web` (Browser) oder `npm start` (Expo Go auf dem Handy).
 5. Selbst registrieren, dann im SQL-Editor zum Admin machen:
 
