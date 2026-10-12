@@ -37,3 +37,14 @@ test('Euro-Eingaben', () => {
   assert.equal(parseEuro('abc'), 0);
   assert.equal(parseEuro('-5'), 0);
 });
+
+test('Autorennen: Ziellinie ist das eigene Monatsziel', async () => {
+  const { raceLanes } = await import('../src/lib/scoring.ts');
+  const row = (id: string, vehicles: number, target: number | null) => ({ seller_id: id, full_name: id, vehicles, commission: 0, target_vehicles: target, rank: 1 });
+  const lanes = raceLanes([row('a', 5, 10), row('b', 12, 8), row('c', 3, null)]);
+  assert.equal(lanes[0].progress, 0.5);
+  assert.equal(lanes[1].progress, 1);
+  assert.equal(lanes[1].finished, true);
+  assert.equal(lanes[2].finish, 10); // kein eigenes Ziel: höchstes Ziel im Team
+  assert.equal(raceLanes([row('x', 4, null), row('y', 2, null)])[1].progress, 0.5);
+});

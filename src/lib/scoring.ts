@@ -65,3 +65,25 @@ export function parseEuro(input: string): number {
   const n = Number(normalized);
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
+
+export type RaceLane = { seller_id: string; full_name: string; vehicles: number; finish: number; progress: number; finished: boolean; rank: number };
+
+/**
+ * Autorennen: Jeder fährt auf sein eigenes Monatsziel zu (Ziellinie = 100 %).
+ * Ohne eigenes Ziel gilt das höchste Ziel im Team, sonst der Spitzenwert.
+ */
+export function raceLanes(rows: BoardRow[]): RaceLane[] {
+  const fallback = Math.max(0, ...rows.map((r) => r.target_vehicles ?? 0)) || Math.max(1, ...rows.map((r) => r.vehicles));
+  return rows.map((r) => {
+    const finish = r.target_vehicles && r.target_vehicles > 0 ? r.target_vehicles : fallback;
+    return {
+      seller_id: r.seller_id,
+      full_name: r.full_name,
+      vehicles: r.vehicles,
+      finish,
+      progress: Math.min(1, r.vehicles / finish),
+      finished: r.vehicles >= finish,
+      rank: r.rank,
+    };
+  });
+}

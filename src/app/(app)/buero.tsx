@@ -3,14 +3,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
+import { Race } from '@/components/Race';
 import { Logo } from '@/components/ui';
 import { fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
+import { raceLanes } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
 
 // Dunkle Anzeige im Prusseit-Look: Schwarz, Anthrazit und Prusseit-Rot.
 const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c' };
 const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
+const ROTATE_MS = 30_000;
 
 /** Vollbild-Rangliste für den Bildschirm im Büro. Aktualisiert sich selbst. */
 export default function Buero() {
@@ -36,7 +39,16 @@ export default function Buero() {
   }, [reload]);
 
   // Jubel, sobald ein neuer Verkauf auftaucht (nicht beim ersten Laden). /buero?probe=1 zeigt eine Vorschau.
-  const { probe } = useLocalSearchParams<{ probe?: string }>();
+  const { probe, ansicht } = useLocalSearchParams<{ probe?: string; ansicht?: string }>();
+
+  // Ansichten im Wechsel: Rangliste und Autorennen, je 30 Sekunden. /buero?ansicht=rennen oder =liste hält eine Ansicht fest.
+  const pinned = ansicht === 'rennen' || ansicht === 'liste' ? ansicht : null;
+  const [view, setView] = useState<'liste' | 'rennen'>(pinned ?? 'liste');
+  useEffect(() => {
+    if (pinned) return setView(pinned);
+    const t = setInterval(() => setView((v) => (v === 'liste' ? 'rennen' : 'liste')), ROTATE_MS);
+    return () => clearInterval(t);
+  }, [pinned]);
   const [party, setParty] = useState<CelebrationInfo | null>(
     probe ? { key: 'probe', name: 'Max Mustermann', vehicle: 'VW Golf 8 Life' } : null,
   );
@@ -66,9 +78,12 @@ export default function Buero() {
           <View style={[styles.logoPlate, { padding: 8 * s }]}>
             <Logo height={52 * s} />
           </View>
-          <Text style={[styles.title, { fontSize: 44 * s }]}>VERKÄUFER-RANGLISTE</Text>
+          <Text style={[styles.title, { fontSize: 44 * s }]}>{view === 'rennen' ? 'MONATS-RENNEN' : 'VERKÄUFER-RANGLISTE'}</Text>
         </View>
-        <Text style={[styles.muted, { fontSize: 20 * s }]}>{monthLabel(month)}</Text>
+        <Text style={[styles.muted, { fontSize: 20 * s }]}>
+          {view === 'rennen' ? 'Ziellinie = Monatsziel · ' : ''}
+          {monthLabel(month)}
+        </Text>
       </View>
       {teamTarget > 0 && (
         <View style={[styles.team, { paddingVertical: 12 * s, paddingHorizontal: 18 * s, gap: 20 * s }]}>
@@ -83,6 +98,9 @@ export default function Buero() {
           </Text>
         </View>
       )}
+      {view === 'rennen' ? (
+        <Race lanes={raceLanes(rows)} scale={s} />
+      ) : (
       <View style={{ flex: 1, gap: 8 * s }}>
         {rows.map((r) => {
           const reached = r.target_vehicles != null && r.target_vehicles > 0 && r.vehicles >= r.target_vehicles;
@@ -106,6 +124,7 @@ export default function Buero() {
           );
         })}
       </View>
+      )}
       <Text style={[styles.muted, styles.foot, { fontSize: 20 * s, paddingTop: 10 * s }]} numberOfLines={1}>
         {data?.latest ? (
           <>
