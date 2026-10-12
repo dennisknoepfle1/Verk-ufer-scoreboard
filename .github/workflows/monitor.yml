@@ -11,6 +11,7 @@ on:
 concurrency: monitor
 
 permissions:
+  actions: write
   contents: read
   issues: write
 
@@ -19,6 +20,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      # GitHub schaltet Zeitpläne nach 60 Tagen ohne Code-Änderung ab. Das erneute Einschalten
+      # setzt diese Frist zurück, damit die Überwachung dauerhaft weiterläuft.
+      - name: Überwachung wach halten
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/monitor.yml/enable"
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
