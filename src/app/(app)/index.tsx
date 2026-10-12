@@ -1,7 +1,8 @@
 import { Link, Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { BrandBar, Button, ThemeToggle, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
+import { CountUp } from '@/components/CountUp';
+import { BrandBar, Button, ThemeToggle, ui, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { usePendingSales } from '@/lib/pending';
 import { KudosFeed } from '@/components/KudosFeed';
@@ -30,7 +31,7 @@ export default function Scoreboard() {
 
   if (profile?.role === 'admin') return <Redirect href="/admin" />;
   const pendingBox = pending.length > 0 && (
-    <View style={styles.pending}>
+    <View style={styles.pending} {...ui('card')}>
           <Text style={styles.pendingTitle}>
             {pending.length === 1 ? '1 Verkauf wartet' : `${pending.length} Verkäufe warten`} auf Übertragung
           </Text>
@@ -85,19 +86,20 @@ export default function Scoreboard() {
       <Text style={styles.hello}>Hallo {firstName(profile?.full_name ?? '')}</Text>
 
       {me && (
-        <View style={styles.me}>
+        <View style={styles.me} {...ui('hero')}>
+          <View {...ui('hero-orb')} />
           <View>
             <Text style={styles.meLabel}>Platz</Text>
-            <Text style={styles.meRank}>{me.rank}</Text>
+            <CountUp value={me.rank} style={styles.meRank} duration={700} />
           </View>
           <View style={{ gap: 6, flex: 1 }}>
             <View>
               <Text style={styles.meLabel}>Verkaufte Fahrzeuge · {monthLabel(month)}</Text>
-              <Text style={styles.meValue}>{me.vehicles}</Text>
+              <CountUp value={me.vehicles} style={styles.meValue} />
             </View>
             <View>
               <Text style={styles.meLabel}>Deine Provision</Text>
-              <Text style={styles.meValue}>{eur(me.commission)}</Text>
+              <CountUp value={me.commission} format={eur} style={styles.meValue} duration={1400} />
             </View>
           </View>
         </View>
@@ -106,7 +108,7 @@ export default function Scoreboard() {
       {saved && pending.length === 0 ? <Notice tone="good">Gespeichert{Number(saved) ? `: +${eur(Number(saved))} Provision` : ''}.</Notice> : null}
       {pendingBox}
 
-      <View style={styles.gap}>
+      <View style={styles.gap} {...ui('panel-dark')}>
         <Text style={styles.gapText}>
           {gap
             ? `Noch ${gap.vehiclesNeeded} ${gap.vehiclesNeeded === 1 ? 'Verkauf' : 'Verkäufe'} bis Platz ${gap.target.rank} (${firstName(gap.target.full_name)}).`
@@ -115,7 +117,7 @@ export default function Scoreboard() {
       </View>
 
       {goal && me && (
-        <View style={[styles.goal, goal.reached && styles.goalDone]}>
+        <View style={[styles.goal, goal.reached && styles.goalDone]} {...ui('card')}>
           <View style={styles.row}>
             <Text style={styles.goalLabel}>Monatsziel</Text>
             <Text style={styles.goalValue}>
@@ -132,7 +134,7 @@ export default function Scoreboard() {
       )}
 
       {team && data && (
-        <View style={styles.goal}>
+        <View style={styles.goal} {...ui('card')}>
           <View style={styles.row}>
             <Text style={styles.goalLabel}>Teamziel</Text>
             <Text style={styles.goalValue}>
@@ -149,11 +151,11 @@ export default function Scoreboard() {
       )}
 
       {myBadges.length > 0 && (
-        <View style={styles.badges}>
+        <View style={styles.badges} {...ui('card')}>
           <Text style={styles.goalLabel}>Deine Abzeichen · {monthLabel(month)}</Text>
           <View style={styles.badgeRow}>
             {myBadges.map((b) => (
-              <View key={b} style={styles.badge} accessibilityLabel={`${BADGES[b].label}: ${BADGES[b].hint}`}>
+              <View key={b} style={styles.badge} {...ui('badge')} accessibilityLabel={`${BADGES[b].label}: ${BADGES[b].hint}`}>
                 <Text style={styles.badgeIcon}>{BADGES[b].icon}</Text>
                 <Text style={styles.badgeLabel}>{BADGES[b].label}</Text>
               </View>
@@ -167,7 +169,7 @@ export default function Scoreboard() {
       <H2>Rangliste {monthLabel(month)}</H2>
       <View>
         {rows.map((r) => (
-          <View key={r.seller_id} style={[styles.listRow, r.seller_id === profile?.id && styles.mine]}>
+          <View key={r.seller_id} style={[styles.listRow, r.seller_id === profile?.id && styles.mine]} {...ui('row')}>
             <Text style={[styles.pos, { color: rankColor(r.rank) }]}>{r.rank}</Text>
             <Text style={styles.name} numberOfLines={1}>
               {r.full_name}

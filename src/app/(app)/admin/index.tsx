@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { KudosFeed } from '@/components/KudosFeed';
 import { MonthPicker } from '@/components/MonthPicker';
 import { StarInput } from '@/components/Stars';
+import { AnimatedValue } from '@/components/CountUp';
 import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchFeed, fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
 import { dateLabel, eur, monthStart, shiftMonth } from '@/lib/format';
@@ -60,9 +61,9 @@ export default function AdminSales() {
       {error && <Notice tone="danger">{error}</Notice>}
       <View style={styles.kpis}>
         {kpis.map(([l, v]) => (
-          <Card key={l} style={styles.kpi}>
+          <Card key={l} style={styles.kpi} kind="kpi">
             <Text style={styles.kpiLabel}>{l}</Text>
-            <Text style={styles.kpiValue}>{v}</Text>
+            <AnimatedValue text={v} style={styles.kpiValue} />
           </Card>
         ))}
       </View>

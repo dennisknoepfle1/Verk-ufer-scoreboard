@@ -2,7 +2,7 @@ import { Link, Redirect, Slot, usePathname } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors, Logo, ThemeToggle } from '@/components/ui';
+import { colors, Logo, ThemeToggle, ui } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 
 const NAV = [
@@ -20,7 +20,7 @@ export default function AdminLayout() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <SafeAreaView edges={['top', 'left', 'right']} style={styles.bar}>
+      <SafeAreaView edges={['top', 'left', 'right']} style={styles.bar} {...ui('topbar')}>
         <View style={styles.barInner}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
             <Logo height={36} />
@@ -30,7 +30,7 @@ export default function AdminLayout() {
             {NAV.map((n) => {
               const active = n.href === '/admin' ? path === '/admin' : path.startsWith(n.href);
               return (
-                <Link key={n.href} href={n.href} style={[styles.navItem, active && styles.navActive]}>
+                <Link key={n.href} href={n.href} style={[styles.navItem, active && styles.navActive]} {...ui(active ? 'nav-active' : 'nav')}>
                   {n.label}
                 </Link>
               );

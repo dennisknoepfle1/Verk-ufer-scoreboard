@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { colors, Muted } from '@/components/ui';
+import { colors, Muted, ui } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import type { FeedItem } from '@/lib/data';
 import { firstName } from '@/lib/format';
@@ -50,7 +50,7 @@ export function KudosFeed({ items, onChange }: { items: FeedItem[]; onChange: ()
       {items.map((it) => {
         const mine = it.seller_id === profile?.id;
         return (
-          <View key={it.sale_id} style={styles.item}>
+          <View key={it.sale_id} style={styles.item} {...ui('feed')}>
             <View style={styles.head}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.title} numberOfLines={1}>
@@ -67,6 +67,7 @@ export function KudosFeed({ items, onChange }: { items: FeedItem[]; onChange: ()
                     accessibilityRole="button"
                     accessibilityLabel={it.liked ? 'Lob zurücknehmen' : `${firstName(it.full_name)} loben`}
                     style={[styles.like, it.liked && styles.likeOn]}
+                    {...ui('chip')}
                   >
                     <Text style={[styles.likeText, it.liked && { color: '#fff' }]}>👍 {it.likes || ''}</Text>
                   </Pressable>

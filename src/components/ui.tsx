@@ -42,20 +42,27 @@ export const colors: typeof light =
     ? (Object.fromEntries(Object.keys(light).map((k) => [k, `var(--c-${k})`])) as typeof light)
     : light;
 
+/** Markiert ein Element für die Gestaltung in public/design.css (nur im Web, als data-ui="…"). */
+export const ui = (name: string): object => (Platform.OS === 'web' ? { dataSet: { ui: name } } : {});
+
 export const rankColor = (rank: number) =>
   rank === 1 ? colors.gold : rank === 2 ? colors.silver : rank === 3 ? colors.bronze : colors.fg;
 
 export function Screen({ children, scroll = true, maxWidth = 560 }: { children: ReactNode; scroll?: boolean; maxWidth?: number }) {
   const inner = <View style={[styles.inner, { maxWidth }]}>{children}</View>;
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']} {...ui('screen')}>
       {scroll ? <ScrollView contentContainerStyle={styles.scroll}>{inner}</ScrollView> : inner}
     </SafeAreaView>
   );
 }
 
 export function H1({ children }: { children: ReactNode }) {
-  return <Text style={styles.h1}>{children}</Text>;
+  return (
+    <Text style={styles.h1} {...ui('h1')}>
+      {children}
+    </Text>
+  );
 }
 
 export function H2({ children }: { children: ReactNode }) {
@@ -66,8 +73,12 @@ export function Muted({ children, style }: { children: ReactNode; style?: object
   return <Text style={[styles.muted, style]}>{children}</Text>;
 }
 
-export function Card({ children, style }: { children: ReactNode; style?: ViewStyle | ViewStyle[] }) {
-  return <View style={[styles.card, style]}>{children}</View>;
+export function Card({ children, style, kind = 'card' }: { children: ReactNode; style?: ViewStyle | ViewStyle[]; kind?: 'card' | 'kpi' }) {
+  return (
+    <View style={[styles.card, style]} {...ui(kind)}>
+      {children}
+    </View>
+  );
 }
 
 export function Button({
@@ -92,7 +103,8 @@ export function Button({
       accessibilityRole="button"
       onPress={onPress}
       disabled={disabled || busy}
-      style={({ pressed }) => [styles.btn, small && styles.btnSmall, v, (pressed || disabled) && { opacity: 0.6 }]}
+      style={({ pressed }) => [styles.btn, small && styles.btnSmall, v, disabled ? { opacity: 0.55 } : pressed && { opacity: 0.85 }]}
+      {...ui(variant === 'primary' ? 'btn-primary' : 'btn-ghost')}
     >
       {busy ? <ActivityIndicator color={variant === 'primary' ? '#fff' : colors.accent} /> : <Text style={[styles.btnText, small && { fontSize: 14 }, t]}>{title}</Text>}
     </Pressable>
@@ -103,7 +115,7 @@ export function Field({ label, hint, ...props }: TextInputProps & { label: strin
   return (
     <View style={{ gap: 4 }}>
       <Text style={styles.label}>{label}</Text>
-      <TextInput placeholderTextColor={colors.muted} style={styles.input} {...props} />
+      <TextInput placeholderTextColor={colors.muted} style={styles.input} {...ui('input')} {...props} />
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
     </View>
   );
@@ -121,8 +133,8 @@ export function Notice({ children, tone = 'info' }: { children: ReactNode; tone?
 
 export function Meter({ percent, color = colors.accent }: { percent: number; color?: string }) {
   return (
-    <View style={styles.meter}>
-      <View style={[styles.meterFill, { width: `${Math.max(0, Math.min(100, percent))}%`, backgroundColor: color }]} />
+    <View style={styles.meter} {...ui('meter')}>
+      <View {...ui('meter-fill')} style={[styles.meterFill, { width: `${Math.max(0, Math.min(100, percent))}%`, backgroundColor: color }]} />
     </View>
   );
 }
@@ -186,7 +198,7 @@ export function Logo({ height = 44 }: { height?: number }) {
 /** Weiße Kopfzeile mit Logo und rotem Abschluss, wie auf autowelt-prusseit.de. */
 export function BrandBar({ right }: { right?: ReactNode }) {
   return (
-    <View style={styles.brandBar}>
+    <View style={styles.brandBar} {...ui('brandbar')}>
       <Logo height={40} />
       {right}
     </View>

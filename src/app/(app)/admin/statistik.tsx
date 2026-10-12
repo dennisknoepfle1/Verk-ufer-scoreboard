@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
+import { AnimatedValue } from '@/components/CountUp';
+import { ui, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchSales, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart, shiftMonth } from '@/lib/format';
 import { monthlyTrend, pct, perSeller, stars, summarize, type StatSale } from '@/lib/stats';
@@ -74,9 +75,11 @@ export default function Statistik() {
                 accessibilityRole="button"
                 accessibilityLabel={`${monthLabel(t.month)}: ${t.vehicles} Fahrzeuge`}
                 style={styles.col}
+                {...ui('col')}
               >
                 <View style={styles.barArea}>
                   <View
+                    {...ui('bar')}
                     style={[
                       styles.bar,
                       { height: `${(t.vehicles / max) * 100}%`, backgroundColor: active ? colors.accent : '#f08a90' },
@@ -98,7 +101,7 @@ export default function Statistik() {
 
       <View style={styles.periods}>
         {PERIODS.map((p) => (
-          <Pressable key={p.key} onPress={() => setPeriod(p.key)} accessibilityRole="button" style={[styles.chip, period === p.key && styles.chipActive]}>
+          <Pressable key={p.key} onPress={() => setPeriod(p.key)} accessibilityRole="button" style={[styles.chip, period === p.key && styles.chipActive]} {...ui('chip')}>
             <Text style={[styles.chipText, period === p.key && { color: '#fff' }]}>{p.label}</Text>
           </Pressable>
         ))}
@@ -106,9 +109,9 @@ export default function Statistik() {
 
       <View style={styles.kpis}>
         {kpis.map(([l, v]) => (
-          <Card key={l} style={styles.kpi}>
+          <Card key={l} style={styles.kpi} kind="kpi">
             <Text style={styles.kpiLabel}>{l}</Text>
-            <Text style={styles.kpiValue}>{v}</Text>
+            <AnimatedValue text={v} style={styles.kpiValue} />
           </Card>
         ))}
       </View>

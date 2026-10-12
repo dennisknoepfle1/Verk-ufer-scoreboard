@@ -4,7 +4,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
-import { Logo } from '@/components/ui';
+import { Logo, ui } from '@/components/ui';
 import { badgeIcons, type BadgeKey } from '@/lib/badges';
 import { fetchBadges, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
@@ -86,7 +86,7 @@ export default function Buero() {
   const lastComment = top?.comments[top.comments.length - 1];
 
   return (
-    <View style={[styles.root, { padding: 32 * s, gap: 14 * s }]}>
+    <View style={[styles.root, { padding: 32 * s, gap: 14 * s }]} {...ui('tv')}>
       <View style={styles.head}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 * s }}>
           <View style={[styles.logoPlate, { padding: 8 * s }]}>
@@ -100,10 +100,10 @@ export default function Buero() {
         </Text>
       </View>
       {teamTarget > 0 && (
-        <View style={[styles.team, { paddingVertical: 12 * s, paddingHorizontal: 18 * s, gap: 20 * s }]}>
+        <View style={[styles.team, { paddingVertical: 12 * s, paddingHorizontal: 18 * s, gap: 20 * s }]} {...ui('team')}>
           <Text style={[styles.teamLabel, { fontSize: 24 * s }]}>TEAMZIEL</Text>
           <View style={[styles.teamTrack, { flex: 1, height: 22 * s }]}>
-            <View style={[styles.teamFill, { width: `${Math.min(100, teamPct)}%` }]} />
+            <View style={[styles.teamFill, { width: `${Math.min(100, teamPct)}%` }]} {...ui('team-fill')} />
           </View>
           <Text style={[styles.cell, { fontSize: 30 * s }]}>
             {team?.vehicles ?? 0}
@@ -119,7 +119,7 @@ export default function Buero() {
         {rows.map((r) => {
           const reached = r.target_vehicles != null && r.target_vehicles > 0 && r.vehicles >= r.target_vehicles;
           return (
-            <View key={r.seller_id} style={[styles.row, { paddingVertical: 10 * s, paddingHorizontal: 16 * s, gap: 20 * s }]}>
+            <View key={r.seller_id} style={[styles.row, { paddingVertical: 10 * s, paddingHorizontal: 16 * s, gap: 20 * s }]} {...ui(r.rank === 1 ? 'tv-lead' : 'tv-row')}>
               <Text style={[styles.cell, { width: 56 * s, fontSize: 32 * s, color: podium[r.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{r.rank}</Text>
               <View style={{ flex: 1.7, flexDirection: 'row', alignItems: 'center', gap: 8 * s }}>
                 <Text style={[styles.cell, { flexShrink: 1, fontSize: 30 * s }]} numberOfLines={1}>
@@ -128,7 +128,7 @@ export default function Buero() {
                 {icons[r.seller_id] ? <Text style={{ fontSize: 22 * s, flexShrink: 0 }} numberOfLines={1}>{icons[r.seller_id]}</Text> : null}
               </View>
               <View style={[styles.track, { flex: 1.3, height: 14 * s }]}>
-                <View style={[styles.fill, { width: `${(r.vehicles / max) * 100}%` }]} />
+                <View style={[styles.fill, { width: `${(r.vehicles / max) * 100}%` }]} {...ui('tv-fill')} />
               </View>
               <Text style={[styles.cell, { width: 140 * s, fontSize: 30 * s, textAlign: 'right' }]}>
                 {r.vehicles}

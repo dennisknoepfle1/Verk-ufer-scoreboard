@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
+import { ui } from '@/components/ui';
 import type { RaceLane } from '@/lib/scoring';
 
 const RED = '#e30614';
@@ -42,8 +43,8 @@ function Lane({ lane, s, height, delay, icons }: { lane: RaceLane; s: number; he
         </Text>
         {icons ? <Text style={{ fontSize: Math.min(18 * s, height * 0.3) }} numberOfLines={1}>{icons}</Text> : null}
       </View>
-      <View style={[styles.road, { height, paddingLeft: carW }]}>
-        <View style={styles.dash} />
+      <View style={[styles.road, { height, paddingLeft: carW }]} {...ui('road')}>
+        <View style={styles.dash} {...ui('road-dash')} />
         <View style={{ flex: 1 }}>
           <Finish height={height} s={s} />
           <Animated.View style={[styles.car, { left, width: carW, height: height * 0.8, transform: [{ translateX: -carW }, { translateY: -height * 0.4 }] }]}>
@@ -63,7 +64,7 @@ function Lane({ lane, s, height, delay, icons }: { lane: RaceLane; s: number; he
 function Car({ w, h, number, badge }: { w: number; h: number; number: number; badge: string }) {
   const wheel = h * 0.42;
   return (
-    <View style={{ width: w, height: h }}>
+    <View style={{ width: w, height: h }} {...ui('car')}>
       {/* Kabine mit Scheibe */}
       <View style={[styles.cabin, { left: w * 0.28, width: w * 0.42, height: h * 0.42, borderTopLeftRadius: h * 0.3, borderTopRightRadius: h * 0.18 }]}>
         <View style={[styles.window, { margin: h * 0.07, borderTopLeftRadius: h * 0.22, borderTopRightRadius: h * 0.12 }]} />

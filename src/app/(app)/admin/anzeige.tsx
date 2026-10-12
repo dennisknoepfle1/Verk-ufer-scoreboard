@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
+import { ui, Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchDisplayView, useLive, type DisplayView } from '@/lib/data';
 import { supabase } from '@/lib/supabase';
 
@@ -44,6 +44,7 @@ export default function Anzeige() {
                 accessibilityRole="radio"
                 accessibilityState={{ checked: on }}
                 style={[styles.option, on && styles.optionOn]}
+                {...ui('chip')}
               >
                 <View style={[styles.dot, on && styles.dotOn]} />
                 <View style={{ flex: 1, gap: 2 }}>
