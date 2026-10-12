@@ -28,6 +28,9 @@ type AsanaTask = {
   due_at?: string | null;
   permalink_url?: string;
   memberships?: { project?: { gid?: string }; section?: { name?: string } }[];
+  created_at?: string;
+  created_by?: { name?: string } | null;
+  completed?: boolean;
   custom_fields?: { name?: string; type?: string; date_value?: { date?: string | null; date_time?: string | null } | null }[];
 };
 
@@ -49,5 +52,13 @@ export function toRow(t: AsanaTask, gid: string) {
     stage: stageOf(section),
     due_on: deliveryDate(t),
     permalink_url: t.permalink_url ?? null,
+    created_at: t.created_at ?? null,
+    created_by: t.created_by?.name?.trim() || null,
+    completed: t.completed === true,
   };
+}
+
+/** Monatsanfang (deutsche Zeit, großzügig: 2 Tage früher, damit nichts am Rand fehlt) für completed_since. */
+export function monthStartIso(now: Date): string {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 2 * 86_400_000).toISOString();
 }

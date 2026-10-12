@@ -1,9 +1,9 @@
-// Holt die offenen Fahrzeug-Aufgaben aus Asana (nur lesend) und speichert den Stand in Supabase.
+// Holt die Fahrzeug-Aufgaben aus Asana (offen + in diesem Monat erledigt, nur lesend) und speichert den Stand in Supabase.
 // Läuft alle 15 Minuten (pg_cron) und sofort, wenn der Admin das Projekt ändert oder „Jetzt abrufen“ drückt.
 // Schlüssel: Edge-Function-Secret ASANA_TOKEN. Projekt: Tabelle asana_settings (Link oder ID).
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
-import { projectGid, toRow } from './logic.ts';
+import { monthStartIso, projectGid, toRow } from './logic.ts';
 
 const db = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
   auth: { persistSession: false },
@@ -36,14 +36,15 @@ Deno.serve(async (req) => {
   const gid = projectGid(settings?.project_ref ?? '');
   if (!gid) return fail('Kein Asana-Projekt eingetragen');
 
+  const monthStart = monthStartIso(new Date());
   const rows: ReturnType<typeof toRow>[] = [];
   let offset: string | undefined;
   try {
     for (let page = 0; page < 20; page++) {
       const url = new URL(`https://app.asana.com/api/1.0/projects/${gid}/tasks`);
-      url.searchParams.set('completed_since', 'now'); // nur offene Aufgaben
+      url.searchParams.set('completed_since', monthStart); // offene + in diesem Monat erledigte (Einkäufer-Challenge)
       url.searchParams.set('limit', '100');
-      url.searchParams.set('opt_fields', 'name,due_on,due_at,permalink_url,memberships.project.gid,memberships.section.name,custom_fields.name,custom_fields.type,custom_fields.date_value');
+      url.searchParams.set('opt_fields', 'name,due_on,due_at,permalink_url,memberships.project.gid,memberships.section.name,custom_fields.name,custom_fields.type,custom_fields.date_value,created_at,created_by.name,completed');
       if (offset) url.searchParams.set('offset', offset);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
       if (res.status === 401) return fail('Asana-Schlüssel ungültig oder abgelaufen');

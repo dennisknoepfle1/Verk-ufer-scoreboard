@@ -2,10 +2,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { pipelineSummary, type Delivery } from '../src/lib/deliveries.ts';
-import { projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
+import { monthStartIso, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
   task_gid: Math.random().toString(), name: 'Auto', section: '', stage, due_on, permalink_url: null,
+});
+
+test('Abruf liefert Ersteller, Erstelldatum und Erledigt', () => {
+  const r = toRow({ gid: '1', name: 'Golf', created_at: '2026-10-05T08:00:00.000Z', created_by: { name: ' Anna Berg ' }, completed: true }, '5');
+  assert.deepEqual([r.created_at, r.created_by, r.completed], ['2026-10-05T08:00:00.000Z', 'Anna Berg', true]);
+  assert.equal(toRow({ gid: '2', created_by: null }, '5').created_by, null);
+  assert.equal(monthStartIso(new Date('2026-10-12T10:00:00Z')), '2026-09-29T00:00:00.000Z');
 });
 
 test('Spalten werden richtig zugeordnet', () => {
@@ -44,6 +51,7 @@ test('Cashflow: alle drei Spalten zählen, Auszahlung/Prüfung zuerst, Sonstige 
   const s = pipelineSummary([
     d('2026-10-12', 'fertig'), d(null, 'fertig'), d('2026-10-13', 'auslieferung'),
     d('2026-10-01', 'ausgeliefert'), d('2026-09-20', 'ausgeliefert'), d(null, 'ausgeliefert'), d(null, 'sonstige'),
+    { ...d('2026-10-02', 'ausgeliefert'), completed: true },
   ]);
   assert.deepEqual(s.counts.map((c) => `${c.short}:${c.count}`), ['Auszahlung/Prüfung:3', 'Auslieferung:1', 'Fertig:2']);
   assert.equal(s.total, 6);

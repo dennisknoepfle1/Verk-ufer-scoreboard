@@ -224,3 +224,16 @@ export async function syncAsanaNow() {
   const { error } = await supabase.functions.invoke('asana-sync', { body: {} });
   if (error) throw error;
 }
+
+export type BuyerRow = { buyer: string; vehicles: number; rank: number };
+
+/** Einkäufer-Rangliste des laufenden Monats aus Asana. Bei Problemen null (Ansicht wird dann ausgelassen). */
+export async function fetchBuyers(): Promise<BuyerRow[] | null> {
+  try {
+    const { data, error } = await supabase.rpc('buyer_leaderboard');
+    if (error) return null;
+    return (data ?? []) as BuyerRow[];
+  } catch {
+    return null;
+  }
+}

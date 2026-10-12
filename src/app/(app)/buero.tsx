@@ -7,7 +7,7 @@ import { Race } from '@/components/Race';
 import { Logo, ui } from '@/components/ui';
 import { badgeIcons, type BadgeKey } from '@/lib/badges';
 import { pipelineSummary } from '@/lib/deliveries';
-import { fetchBadges, fetchDeliveries, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchBadges, fetchBuyers, fetchDeliveries, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 import { raceLanes } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
@@ -16,6 +16,7 @@ import { stars } from '@/lib/stats';
 const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c' };
 const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
 const ROTATE_MS = 30_000;
+type Ansicht = 'liste' | 'rennen' | 'einkauf';
 
 /** Vollbild-Rangliste für den Bildschirm im Büro. Aktualisiert sich selbst. */
 export default function Buero() {
@@ -61,13 +62,19 @@ export default function Buero() {
   // Der Admin wählt unter Büro-Anzeige: nur Rangliste, nur Rennen oder Wechsel alle 30 Sekunden.
   // /buero?ansicht=rennen oder =liste hält eine Ansicht auf diesem Bildschirm fest.
   const setting = data?.setting ?? 'wechsel';
-  const pinned = ansicht === 'rennen' || ansicht === 'liste' ? ansicht : setting === 'wechsel' ? null : setting;
-  const [view, setView] = useState<'liste' | 'rennen'>(pinned ?? 'liste');
+  // Einkäufer-Rangliste aus Asana: kommt im Wechsel als dritte Ansicht dazu, sobald es Daten gibt.
+  // /buero?ansicht=einkauf zeigt sie fest auf diesem Bildschirm.
+  const { data: buyers } = useLive(fetchBuyers, []);
+  const hasBuyers = (buyers?.length ?? 0) > 0;
+  const pinned = ansicht === 'rennen' || ansicht === 'liste' || ansicht === 'einkauf' ? ansicht : setting === 'wechsel' ? null : setting;
+  const [view, setView] = useState<Ansicht>(pinned ?? 'liste');
   useEffect(() => {
     if (pinned) return setView(pinned);
-    const t = setInterval(() => setView((v) => (v === 'liste' ? 'rennen' : 'liste')), ROTATE_MS);
+    const order: Ansicht[] = hasBuyers ? ['liste', 'rennen', 'einkauf'] : ['liste', 'rennen'];
+    setView((v) => (order.includes(v) ? v : 'liste'));
+    const t = setInterval(() => setView((v) => order[(order.indexOf(v) + 1) % order.length]), ROTATE_MS);
     return () => clearInterval(t);
-  }, [pinned]);
+  }, [pinned, hasBuyers]);
   const [party, setParty] = useState<CelebrationInfo | null>(
     probe ? { key: 'probe', name: 'Max Mustermann', vehicle: 'VW Golf 8 Life' } : null,
   );
@@ -100,10 +107,10 @@ export default function Buero() {
           <View style={[styles.logoPlate, { padding: 8 * s }]}>
             <Logo height={52 * s} />
           </View>
-          <Text style={[styles.title, { fontSize: 44 * s }]}>{view === 'rennen' ? 'MONATS-RENNEN' : 'VERKÄUFER-RANGLISTE'}</Text>
+          <Text style={[styles.title, { fontSize: 44 * s }]}>{view === 'rennen' ? 'MONATS-RENNEN' : view === 'einkauf' ? 'EINKÄUFER-RANGLISTE' : 'VERKÄUFER-RANGLISTE'}</Text>
         </View>
         <Text style={[styles.muted, { fontSize: 20 * s }]}>
-          {view === 'rennen' ? 'Ziellinie = Monatsziel · ' : ''}
+          {view === 'rennen' ? 'Ziellinie = Monatsziel · ' : view === 'einkauf' ? 'Eingekaufte Fahrzeuge laut Asana · ' : ''}
           {monthLabel(month)}
         </Text>
       </View>
@@ -134,7 +141,22 @@ export default function Buero() {
           <Text style={[styles.muted, { fontSize: 16 * s, marginLeft: 'auto' }]}>Stand {deliveryStand}</Text>
         </View>
       )}
-      {view === 'rennen' ? (
+      {view === 'einkauf' ? (
+        <View style={{ flex: 1, gap: 8 * s }}>
+          {(buyers ?? []).map((b) => (
+            <View key={b.buyer} style={[styles.row, { paddingVertical: 10 * s, paddingHorizontal: 16 * s, gap: 20 * s }]} {...ui(b.rank === 1 ? 'tv-lead' : 'tv-row')}>
+              <Text style={[styles.cell, { width: 56 * s, fontSize: 32 * s, color: podium[b.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{b.rank}</Text>
+              <Text style={[styles.cell, { flex: 1.7, fontSize: 30 * s }]} numberOfLines={1}>{b.buyer}</Text>
+              <View style={[styles.track, { flex: 1.3, height: 14 * s }]}>
+                <View style={[styles.fill, { width: `${(b.vehicles / Math.max(1, buyers?.[0]?.vehicles ?? 1)) * 100}%` }]} {...ui('tv-fill')} />
+              </View>
+              <Text style={[styles.cell, { width: 260 * s, fontSize: 30 * s, textAlign: 'right' }]}>
+                {b.vehicles} <Text style={{ color: tv.muted, fontSize: 22 * s }}>{b.vehicles === 1 ? 'Fahrzeug' : 'Fahrzeuge'}</Text>
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : view === 'rennen' ? (
         <Race lanes={raceLanes(rows)} scale={s} icons={icons} />
       ) : (
       <View style={{ flex: 1, gap: 8 * s }}>

@@ -235,4 +235,23 @@ do $$ begin
   assert (select project_ref from asana_settings) like '%123%', 'Admin konnte Projekt nicht setzen';
   assert (select count(*) from net.calls where url like '%/asana-sync') = 1, 'Abruf nicht angestoßen';
 end $$;
+-- Einkäufer: Aufgaben dieses Monats je Ersteller, Stornos und Vormonat zählen nicht
+set role service_role;
+select public.asana_replace(jsonb_build_array(
+  jsonb_build_object('task_gid','b1','name','Golf','section','FZG.-Beschaffung','stage','sonstige','created_at',now(),'created_by','Anna'),
+  jsonb_build_object('task_gid','b2','name','Polo','section','FZG.-Verkauf (Bestand)','stage','sonstige','created_at',now(),'created_by','Anna','completed',true),
+  jsonb_build_object('task_gid','b3','name','A3','section','FZG.-Beschaffung','stage','sonstige','created_at',now(),'created_by','Ben'),
+  jsonb_build_object('task_gid','b4','name','A4','section','Stornos','stage','sonstige','created_at',now(),'created_by','Ben'),
+  jsonb_build_object('task_gid','b5','name','A5','section','FZG.-Beschaffung','stage','sonstige','created_at',now() - interval '40 days','created_by','Ben')
+)) = 5 as replaced \gset
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+do $$ begin
+  assert (select vehicles from buyer_leaderboard() where buyer = 'Anna') = 2, 'Anna sollte 2 haben';
+  assert (select vehicles from buyer_leaderboard() where buyer = 'Ben') = 1, 'Ben: Storno und Vormonat zählen nicht';
+  assert (select rank from buyer_leaderboard() where buyer = 'Anna') = 1, 'Anna Platz 1';
+  assert (select completed from asana_current() where task_gid = 'b2'), 'erledigt muss gespeichert sein';
+end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;

@@ -11,6 +11,9 @@ export type Delivery = {
   stage: Stage;
   due_on: string | null;
   permalink_url: string | null;
+  completed?: boolean;
+  created_at?: string | null;
+  created_by?: string | null;
 };
 
 /** Reihenfolge: zuerst die Spalte, aus der das Geld als Nächstes kommt. */
@@ -26,8 +29,9 @@ export type PipelineSummary = {
   total: number;
 };
 
+/** Erledigte Aufgaben (in Asana abgehakt) sind durch, für den Cashflow zählen nur offene. */
 export function inPipeline(d: Delivery) {
-  return d.stage !== 'sonstige';
+  return d.stage !== 'sonstige' && !d.completed;
 }
 
 export function pipelineSummary(rows: Delivery[]): PipelineSummary {
