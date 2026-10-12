@@ -12,7 +12,7 @@ export function projectGid(ref: string): string | null {
   return old ? old[1] : null;
 }
 
-/** Board-Spalte -> Stand. „Auszahlung/Prüfung“ gilt als ausgeliefert. */
+/** Board-Spalte -> Stand. „Auszahlung/Prüfung“ gilt als ausgeliefert, „FZG.- Fertig“ als fertig. */
 export function stageOf(section: string): Stage {
   const n = section.toLowerCase();
   if (n.includes('auszahlung') || n.includes('prüfung') || n.includes('pruefung')) return 'ausgeliefert';
@@ -28,7 +28,16 @@ type AsanaTask = {
   due_at?: string | null;
   permalink_url?: string;
   memberships?: { project?: { gid?: string }; section?: { name?: string } }[];
+  custom_fields?: { name?: string; type?: string; date_value?: { date?: string | null; date_time?: string | null } | null }[];
 };
+
+/** Auslieferungstag: Feld „Termin Auslieferung“, sonst das Fälligkeitsdatum der Aufgabe. */
+export function deliveryDate(t: AsanaTask): string | null {
+  const f = t.custom_fields?.find((c) => c.type === 'date' && (c.name ?? '').toLowerCase().includes('auslieferung'));
+  const v = f?.date_value?.date ?? f?.date_value?.date_time ?? null;
+  if (v) return v.slice(0, 10);
+  return t.due_on ?? (t.due_at ? t.due_at.slice(0, 10) : null);
+}
 
 export function toRow(t: AsanaTask, gid: string) {
   const m = t.memberships?.find((x) => x.project?.gid === gid) ?? t.memberships?.[0];
@@ -38,7 +47,7 @@ export function toRow(t: AsanaTask, gid: string) {
     name: (t.name ?? '').trim(),
     section,
     stage: stageOf(section),
-    due_on: t.due_on ?? (t.due_at ? t.due_at.slice(0, 10) : null),
+    due_on: deliveryDate(t),
     permalink_url: t.permalink_url ?? null,
   };
 }

@@ -13,6 +13,9 @@ test('Spalten werden richtig zugeordnet', () => {
   assert.equal(stageOf('Auslieferung'), 'auslieferung');
   assert.equal(stageOf('Auszahlung/ Prüfung'), 'ausgeliefert');
   assert.equal(stageOf('Auszahlung / Pruefung'), 'ausgeliefert');
+  assert.equal(stageOf('FZG.- Fertig'), 'fertig');
+  assert.equal(stageOf('FZG.-Verkauf (Bestand)'), 'sonstige');
+  assert.equal(stageOf('Abgeschlossen'), 'sonstige');
   assert.equal(stageOf('Ideen'), 'sonstige');
 });
 
@@ -28,6 +31,13 @@ test('Aufgabe -> Zeile nimmt die Spalte des richtigen Projekts', () => {
   const r = toRow({ gid: '1', name: ' Golf ', due_on: null, due_at: '2026-10-15T09:00:00.000Z',
     memberships: [{ project: { gid: '9' }, section: { name: 'Anderes' } }, { project: { gid: '5' }, section: { name: 'Fahrzeug fertig' } }] }, '5');
   assert.deepEqual([r.name, r.stage, r.due_on], ['Golf', 'fertig', '2026-10-15']);
+});
+
+test('Auslieferungstag kommt aus „Termin Auslieferung“, sonst Fälligkeit', () => {
+  const cf = (date: string | null) => [{ name: 'Datum Verkauf', type: 'date', date_value: { date: '2026-10-01' } }, { name: 'Termin Auslieferung', type: 'date', date_value: date ? { date } : null }];
+  assert.equal(toRow({ gid: '1', due_on: '2026-10-20', custom_fields: cf('2026-10-15') }, '5').due_on, '2026-10-15');
+  assert.equal(toRow({ gid: '1', due_on: '2026-10-20', custom_fields: cf(null) }, '5').due_on, '2026-10-20');
+  assert.equal(toRow({ gid: '1', due_on: null, custom_fields: cf(null) }, '5').due_on, null);
 });
 
 test('Übersicht: 7 Tage, überfällig, später/ohne Datum, ausgelieferte zählen nicht', () => {
