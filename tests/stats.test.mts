@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { monthlyTrend, perSeller, summarize, pct, type StatSale } from '../src/lib/stats.ts';
+import { monthlyTrend, perSeller, summarize, pct, stars, type StatSale } from '../src/lib/stats.ts';
 
 const s = (seller: string, sold_on: string, bank: number, winter: number, reg: number, commission = 100): StatSale => ({
   seller_id: seller, seller_name: seller.toUpperCase(), sold_on, bank_commission: bank, winter_wheels_price: winter, registration_price: reg, commission,
@@ -43,4 +43,22 @@ test('Je Verkäufer, sortiert nach Fahrzeugen', () => {
   const a = rows.find((r) => r.seller_id === 'a')!;
   assert.equal(a.winterRate, 0.5);
   assert.equal(a.avgBankCommission, 300);
+});
+
+test('Ø Kundenbewertung zählt nur bewertete Verkäufe', () => {
+  const list = [
+    { ...s('a', '2026-10-01', 0, 0, 0), customer_rating: 5 },
+    { ...s('a', '2026-10-02', 0, 0, 0), customer_rating: 4 },
+    { ...s('a', '2026-10-03', 0, 0, 0), customer_rating: null },
+  ];
+  const sum = summarize(list);
+  assert.equal(sum.avgRating, 4.5);
+  assert.equal(sum.ratingCount, 2);
+  assert.equal(summarize([s('a', '2026-10-01', 0, 0, 0)]).avgRating, null);
+});
+
+test('Sterne-Anzeige', () => {
+  assert.equal(stars(null), '–');
+  assert.equal(stars(4.5), '★ 4,5');
+  assert.equal(stars(4), '★ 4,0');
 });

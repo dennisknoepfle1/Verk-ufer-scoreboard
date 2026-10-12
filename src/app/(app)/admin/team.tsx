@@ -4,24 +4,26 @@ import { StyleSheet, Text, TextInput, View } from 'react-native';
 import { MonthPicker } from '@/components/MonthPicker';
 import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import type { Profile } from '@/lib/auth';
-import { fetchLeaderboard, useLive } from '@/lib/data';
+import { fetchLeaderboard, fetchTeamProgress, useLive } from '@/lib/data';
 import { monthStart } from '@/lib/format';
 import { supabase } from '@/lib/supabase';
 
 export default function Team() {
   const [month, setMonth] = useState(monthStart());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [teamDraft, setTeamDraft] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const { data, reload } = useLive(
     async () => {
-      const [{ data: profiles, error: e }, board] = await Promise.all([
+      const [{ data: profiles, error: e }, board, team] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role, status').order('full_name'),
         fetchLeaderboard(month),
+        fetchTeamProgress(month),
       ]);
       if (e) throw e;
-      return { profiles: (profiles ?? []) as Profile[], board };
+      return { profiles: (profiles ?? []) as Profile[], board, team };
     },
     [month],
   );
@@ -48,7 +50,24 @@ export default function Team() {
     }
   }
 
+  async function saveTeamGoal() {
+    if (teamDraft === null) return;
+    const { error: e } =
+      teamDraft === ''
+        ? await supabase.from('team_goals').delete().eq('month', month)
+        : await supabase.from('team_goals').upsert({ month, target_vehicles: Math.max(0, parseInt(teamDraft, 10) || 0) });
+    if (e) setError('Teamziel konnte nicht gespeichert werden.');
+    else {
+      setError(null);
+      setSaved('team');
+      setTeamDraft(null);
+      reload();
+    }
+  }
+
   const profiles = data?.profiles ?? [];
+  const team = data?.team;
+  const goalSum = (data?.board ?? []).reduce((a, r) => a + (r.target_vehicles ?? 0), 0);
   const pending = profiles.filter((p) => p.status === 'pending');
   const sellers = profiles.filter((p) => p.status !== 'pending' && p.role === 'seller');
 
@@ -73,8 +92,24 @@ export default function Team() {
       <Card>
         <View style={styles.head}>
           <H2>Monatsziele</H2>
-          <MonthPicker month={month} onChange={(m) => { setMonth(m); setDrafts({}); }} />
+          <MonthPicker month={month} onChange={(m) => { setMonth(m); setDrafts({}); setTeamDraft(null); }} />
         </View>
+        <View style={[styles.row, styles.teamRow]}>
+          <Text style={styles.name}>Teamziel (ganzes Haus)</Text>
+          <Text style={styles.stand}>{team?.vehicles ?? 0} verkauft</Text>
+          <TextInput
+            accessibilityLabel="Teamziel für den Monat"
+            style={[styles.goal, saved === 'team' && { borderColor: colors.good }]}
+            keyboardType="number-pad"
+            placeholder="–"
+            placeholderTextColor={colors.muted}
+            value={teamDraft ?? (team?.target_vehicles != null ? String(team.target_vehicles) : '')}
+            onChangeText={(t) => setTeamDraft(t.replace(/\D/g, ''))}
+            onBlur={saveTeamGoal}
+            onSubmitEditing={saveTeamGoal}
+          />
+        </View>
+        {goalSum > 0 && <Muted>Zum Vergleich: Die Einzelziele ergeben zusammen {goalSum} Fahrzeuge.</Muted>}
         <Muted>Ziel an verkauften Fahrzeugen. Speichert, sobald du das Feld verlässt.</Muted>
         {sellers.map((p) => {
           const b = data?.board.find((r) => r.seller_id === p.id);
@@ -119,6 +154,7 @@ export default function Team() {
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap', paddingVertical: 6, borderBottomWidth: 1, borderColor: colors.line },
+  teamRow: { backgroundColor: colors.accentSoft, borderRadius: 6, paddingHorizontal: 8, borderBottomWidth: 0, marginTop: 4 },
   name: { flex: 1, minWidth: 140, fontWeight: '600', color: colors.fg },
   stand: { color: colors.muted, fontVariant: ['tabular-nums'] },
   goal: { width: 64, borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 8, textAlign: 'right', fontSize: 16, color: colors.fg, backgroundColor: colors.surface },

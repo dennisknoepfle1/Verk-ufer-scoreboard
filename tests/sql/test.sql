@@ -75,4 +75,32 @@ do $$ begin
   assert (select seller_id from sales where vehicle = 'Tiguan') = '00000000-0000-0000-0000-000000000002', 'Admin darf für andere eintragen';
 end $$;
 
+-- Kundenzufriedenheit: Verkäufer können sich nicht selbst bewerten, Admin schon
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+insert into sales (vehicle, customer_rating) values ('Selbstbewertung', 5);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+do $$ begin
+  assert (select customer_rating from sales where vehicle = 'Selbstbewertung') is null, 'Selbstbewertung wurde gespeichert';
+end $$;
+update sales set customer_rating = 5 where vehicle = 'Golf';
+update sales set customer_rating = 4 where vehicle = 'Polo';
+insert into team_goals (month, target_vehicles) values (date_trunc('month', current_date)::date, 20);
+do $$ begin
+  assert (select avg_rating from seller_ratings() where seller_id = '00000000-0000-0000-0000-000000000001') = 4.5, 'Ø Bewertung falsch';
+  assert (select rating_count from seller_ratings() where seller_id = '00000000-0000-0000-0000-000000000001') = 2, 'Anzahl Bewertungen falsch';
+  assert (select commission from sales where vehicle = 'Golf') = 300, 'Bewertung hat Provision verändert';
+  assert (select target_vehicles from team_progress()) = 20, 'Teamziel fehlt';
+  assert (select vehicles from team_progress()) = 4, 'Team-Fahrzeuge falsch'; -- Golf, Polo, Selbstbewertung, Tiguan
+end $$;
+
+-- Verkäufer dürfen das Teamziel nicht ändern und Bewertungen nicht setzen
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false) is not null as login \gset
+do $$ begin
+  begin
+    insert into team_goals (month, target_vehicles) values ('2030-01-01', 1);
+    assert false, 'Verkäufer hat Teamziel gesetzt';
+  exception when insufficient_privilege then null; end;
+  assert (select target_vehicles from team_progress()) = 20, 'Verkäufer sieht Teamziel nicht';
+end $$;
+
 select 'ALLE SQL-TESTS OK' as result;

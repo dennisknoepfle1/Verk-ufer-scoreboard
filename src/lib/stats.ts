@@ -8,6 +8,7 @@ export type StatSale = {
   winter_wheels_price: number;
   registration_price: number;
   commission: number;
+  customer_rating?: number | null;
 };
 
 export type MonthBucket = { month: string; vehicles: number; commission: number };
@@ -19,6 +20,8 @@ export type Summary = {
   financedRate: number | null; // Anteil der Verkäufe mit Bankprovision > 0
   avgBankCommission: number | null; // Ø Bankprovision je Verkauf
   commission: number;
+  avgRating: number | null; // Ø Kundenbewertung (1–5) der bewerteten Verkäufe
+  ratingCount: number;
 };
 
 export type SellerStats = Summary & { seller_id: string; seller_name: string };
@@ -46,6 +49,7 @@ export function monthlyTrend(sales: StatSale[], lastMonth: string, count = 12): 
 
 export function summarize(sales: StatSale[]): Summary {
   const n = sales.length;
+  const rated = sales.filter((s) => s.customer_rating != null);
   const share = (pred: (s: StatSale) => boolean) => (n ? sales.filter(pred).length / n : null);
   return {
     vehicles: n,
@@ -54,6 +58,8 @@ export function summarize(sales: StatSale[]): Summary {
     financedRate: share((s) => s.bank_commission > 0),
     avgBankCommission: n ? sales.reduce((a, s) => a + s.bank_commission, 0) / n : null,
     commission: sales.reduce((a, s) => a + s.commission, 0),
+    avgRating: rated.length ? rated.reduce((a, s) => a + (s.customer_rating ?? 0), 0) / rated.length : null,
+    ratingCount: rated.length,
   };
 }
 
@@ -67,3 +73,5 @@ export function perSeller(sales: StatSale[]): SellerStats[] {
 }
 
 export const pct = (r: number | null) => (r == null ? '–' : `${Math.round(r * 100)} %`);
+
+export const stars = (avg: number | null) => (avg == null ? '–' : `★ ${avg.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`);

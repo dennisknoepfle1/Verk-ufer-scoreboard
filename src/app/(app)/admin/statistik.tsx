@@ -4,7 +4,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchSales, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart, shiftMonth } from '@/lib/format';
-import { monthlyTrend, pct, perSeller, summarize, type StatSale } from '@/lib/stats';
+import { monthlyTrend, pct, perSeller, stars, summarize, type StatSale } from '@/lib/stats';
 
 type Period = 'month' | 'year' | '12m';
 const PERIODS: { key: Period; label: string }[] = [
@@ -34,6 +34,7 @@ export default function Statistik() {
       winter_wheels_price: s.winter_wheels_price,
       registration_price: s.registration_price,
       commission: s.commission,
+      customer_rating: s.customer_rating,
     }));
   }, [from, current]);
 
@@ -52,6 +53,7 @@ export default function Statistik() {
     ['Ø Bankprovision je Verkauf', total.avgBankCommission == null ? '–' : eur(total.avgBankCommission)],
     ['Quote Winterräder', pct(total.winterRate)],
     ['Quote Zulassung', pct(total.registrationRate)],
+    ['Ø Kundenbewertung', stars(total.avgRating)],
   ];
 
   return (
@@ -128,13 +130,14 @@ export default function Statistik() {
                 <Text style={[styles.td, styles.r, { width: 110 }]}>{pct(r.registrationRate)}</Text>
                 <Text style={[styles.td, styles.r, { width: 120 }]}>{pct(r.financedRate)}</Text>
                 <Text style={[styles.td, styles.r, { width: 150 }]}>{r.avgBankCommission == null ? '–' : eur(r.avgBankCommission)}</Text>
+                <Text style={[styles.td, styles.r, { width: 130 }]}>{stars(r.avgRating)}{r.ratingCount ? ` (${r.ratingCount})` : ''}</Text>
                 <Text style={[styles.td, styles.r, { width: 110, fontWeight: '700' }]}>{eur(r.commission)}</Text>
               </View>
             ))}
           </View>
         </ScrollView>
         {data && sellers.length === 0 && <Muted>In diesem Zeitraum gibt es noch keine Verkäufe.</Muted>}
-        <Muted>Quote = Anteil der Verkäufe, bei denen Winterräder, Zulassung oder eine Finanzierung (Bankprovision) mitverkauft wurden.</Muted>
+        <Muted>Quote = Anteil der Verkäufe, bei denen Winterräder, Zulassung oder eine Finanzierung (Bankprovision) mitverkauft wurden. Ø Bewertung in Klammern: Anzahl bewerteter Verkäufe.</Muted>
       </Card>
     </Screen>
   );
@@ -147,6 +150,7 @@ const COLS = [
   { label: 'Zulassung', w: 110, right: true },
   { label: 'Finanzierung', w: 120, right: true },
   { label: 'Ø Bankprovision', w: 150, right: true },
+  { label: 'Ø Bewertung', w: 130, right: true },
   { label: 'Provision', w: 110, right: true },
 ];
 

@@ -12,6 +12,7 @@ export type Sale = {
   winter_wheels_price: number;
   registration_price: number;
   commission: number;
+  customer_rating: number | null;
   profiles?: { full_name: string } | null;
 };
 
@@ -33,6 +34,23 @@ export async function fetchLeaderboard(month: string): Promise<BoardRow[]> {
 export async function fetchLatestSale(): Promise<{ full_name: string; vehicle: string; created_at: string } | null> {
   const { data } = await supabase.rpc('latest_sale');
   return data?.[0] ?? null;
+}
+
+export type TeamProgress = { target_vehicles: number | null; vehicles: number };
+
+export async function fetchTeamProgress(month: string): Promise<TeamProgress> {
+  const { data, error } = await supabase.rpc('team_progress', { p_month: month });
+  if (error) throw error;
+  return data?.[0] ?? { target_vehicles: null, vehicles: 0 };
+}
+
+export type Rating = { avg: number; count: number };
+
+/** Ø Kundenbewertung je Verkäufer im Monat. */
+export async function fetchRatings(month: string): Promise<Record<string, Rating>> {
+  const { data, error } = await supabase.rpc('seller_ratings', { p_month: month });
+  if (error) throw error;
+  return Object.fromEntries((data ?? []).map((r: any) => [r.seller_id, { avg: Number(r.avg_rating), count: r.rating_count }]));
 }
 
 export async function fetchCurrentRates(): Promise<RatesRow | null> {
@@ -96,6 +114,7 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .channel(`live-${Math.random().toString(36).slice(2)}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_goals' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'team_goals' }, run)
       .subscribe();
     const timer = setInterval(run, 60_000);
     return () => {

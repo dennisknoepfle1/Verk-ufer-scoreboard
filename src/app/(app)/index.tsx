@@ -3,15 +3,20 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { BrandBar, Button, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { fetchLeaderboard, useLive } from '@/lib/data';
+import { fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, firstName, monthLabel, monthStart } from '@/lib/format';
 import { gapToNextRank, goalProgress } from '@/lib/scoring';
+import { stars } from '@/lib/stats';
 
 export default function Scoreboard() {
   const { profile, signOut } = useAuth();
   const { saved } = useLocalSearchParams<{ saved?: string }>();
   const month = monthStart();
-  const { data: rows, error } = useLive(() => fetchLeaderboard(month), [month]);
+  const { data, error } = useLive(async () => {
+    const [rows, team, ratings] = await Promise.all([fetchLeaderboard(month), fetchTeamProgress(month), fetchRatings(month)]);
+    return { rows, team, ratings };
+  }, [month]);
+  const rows = data?.rows;
 
   if (profile?.role === 'admin') return <Redirect href="/admin" />;
   if (!rows) return error ? <Screen><Notice tone="danger">{error}</Notice></Screen> : <Loading />;
@@ -19,6 +24,8 @@ export default function Scoreboard() {
   const me = rows.find((r) => r.seller_id === profile?.id);
   const gap = profile ? gapToNextRank(rows, profile.id) : null;
   const goal = me ? goalProgress(me.vehicles, me.target_vehicles) : null;
+  const team = data ? goalProgress(data.team.vehicles, data.team.target_vehicles) : null;
+  const ratings = data?.ratings ?? {};
 
   return (
     <Screen>
@@ -71,6 +78,23 @@ export default function Scoreboard() {
         </View>
       )}
 
+      {team && data && (
+        <View style={styles.goal}>
+          <View style={styles.row}>
+            <Text style={styles.goalLabel}>Teamziel</Text>
+            <Text style={styles.goalValue}>
+              {data.team.vehicles} / {data.team.target_vehicles} Fahrzeuge
+            </Text>
+          </View>
+          <Meter percent={team.percent} color={colors.accent} />
+          <Text style={{ color: colors.fg }}>
+            {team.reached
+              ? `Teamziel erreicht (${team.percent} %).`
+              : `Gemeinsam noch ${team.remaining} ${team.remaining === 1 ? 'Fahrzeug' : 'Fahrzeuge'} (${team.percent} %).`}
+          </Text>
+        </View>
+      )}
+
       <Button title="Verkauf eintragen" onPress={() => router.push('/neu')} />
 
       <H2>Rangliste {monthLabel(month)}</H2>
@@ -79,6 +103,7 @@ export default function Scoreboard() {
           <View key={r.seller_id} style={[styles.listRow, r.seller_id === profile?.id && styles.mine]}>
             <Text style={[styles.pos, { color: rankColor(r.rank) }]}>{r.rank}</Text>
             <Text style={styles.name} numberOfLines={1}>{r.full_name}</Text>
+            {ratings[r.seller_id] && <Text style={styles.stars}>{stars(ratings[r.seller_id].avg)}</Text>}
             <Text style={styles.count}>{r.vehicles}</Text>
             <Text style={styles.eur}>{eur(r.commission)}</Text>
           </View>
@@ -109,5 +134,6 @@ const styles = StyleSheet.create({
   pos: { width: 28, textAlign: 'center', fontWeight: '800', fontSize: 18 },
   name: { flex: 1, fontWeight: '600', color: colors.fg },
   count: { fontWeight: '700', fontSize: 18, color: colors.fg, minWidth: 24, textAlign: 'right' },
+  stars: { color: '#b07a00', fontWeight: '600', fontVariant: ['tabular-nums'] },
   eur: { color: colors.muted, minWidth: 80, textAlign: 'right', fontVariant: ['tabular-nums'] },
 });

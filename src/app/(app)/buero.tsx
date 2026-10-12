@@ -4,11 +4,12 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Logo } from '@/components/ui';
-import { fetchLatestSale, fetchLeaderboard, useLive } from '@/lib/data';
+import { fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
+import { stars } from '@/lib/stats';
 
 // Dunkle Anzeige im Prusseit-Look: Schwarz, Anthrazit und Prusseit-Rot.
-const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f' };
+const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c' };
 const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
 
 /** Vollbild-Rangliste für den Bildschirm im Büro. Aktualisiert sich selbst. */
@@ -24,8 +25,8 @@ export default function Buero() {
   }, []);
 
   const { data, reload } = useLive(async () => {
-    const [rows, latest] = await Promise.all([fetchLeaderboard(month), fetchLatestSale()]);
-    return { rows, latest };
+    const [rows, latest, team, ratings] = await Promise.all([fetchLeaderboard(month), fetchLatestSale(), fetchTeamProgress(month), fetchRatings(month)]);
+    return { rows, latest, team, ratings };
   }, [month]);
 
   // Zusätzlich alle 10 Sekunden nachsehen, damit der Jubel auch ohne Live-Verbindung zeitnah kommt.
@@ -53,6 +54,10 @@ export default function Buero() {
 
   const rows = data?.rows ?? [];
   const max = Math.max(1, ...rows.map((r) => r.vehicles));
+  const team = data?.team;
+  const teamTarget = team?.target_vehicles ?? 0;
+  const teamPct = teamTarget > 0 ? Math.round(((team?.vehicles ?? 0) / teamTarget) * 100) : 0;
+  const ratings = data?.ratings ?? {};
 
   return (
     <View style={[styles.root, { padding: 32 * s, gap: 14 * s }]}>
@@ -65,6 +70,19 @@ export default function Buero() {
         </View>
         <Text style={[styles.muted, { fontSize: 20 * s }]}>{monthLabel(month)}</Text>
       </View>
+      {teamTarget > 0 && (
+        <View style={[styles.team, { paddingVertical: 12 * s, paddingHorizontal: 18 * s, gap: 20 * s }]}>
+          <Text style={[styles.teamLabel, { fontSize: 24 * s }]}>TEAMZIEL</Text>
+          <View style={[styles.teamTrack, { flex: 1, height: 22 * s }]}>
+            <View style={[styles.teamFill, { width: `${Math.min(100, teamPct)}%` }]} />
+          </View>
+          <Text style={[styles.cell, { fontSize: 30 * s }]}>
+            {team?.vehicles ?? 0}
+            <Text style={{ color: '#ffffffb3' }}> / {teamTarget} Fahrzeuge</Text>
+            {teamPct >= 100 ? <Text> ✓</Text> : null}
+          </Text>
+        </View>
+      )}
       <View style={{ flex: 1, gap: 8 * s }}>
         {rows.map((r) => {
           const reached = r.target_vehicles != null && r.target_vehicles > 0 && r.vehicles >= r.target_vehicles;
@@ -79,6 +97,9 @@ export default function Buero() {
                 {r.vehicles}
                 {r.target_vehicles ? <Text style={{ color: tv.muted }}>/{r.target_vehicles}</Text> : null}
                 {reached ? <Text style={{ color: tv.good }}> ✓</Text> : null}
+              </Text>
+              <Text style={[styles.cell, { width: 100 * s, fontSize: 26 * s, textAlign: 'right', color: ratings[r.seller_id] ? tv.gold : tv.track }]}>
+                {stars(ratings[r.seller_id]?.avg ?? null)}
               </Text>
               <Text style={[styles.cell, styles.muted, { width: 150 * s, fontSize: 26 * s, textAlign: 'right' }]}>{eur(r.commission)}</Text>
             </View>
@@ -109,5 +130,9 @@ const styles = StyleSheet.create({
   cell: { color: tv.fg, fontWeight: '700', fontVariant: ['tabular-nums'] },
   track: { backgroundColor: tv.track, borderRadius: 7, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: tv.accent, borderRadius: 7 },
+  team: { flexDirection: 'row', alignItems: 'center', backgroundColor: tv.accent, borderRadius: 8 },
+  teamLabel: { color: '#fff', fontWeight: '800', letterSpacing: 2 },
+  teamTrack: { backgroundColor: '#00000040', borderRadius: 11, overflow: 'hidden' },
+  teamFill: { height: '100%', backgroundColor: '#fff', borderRadius: 11 },
   foot: { borderTopWidth: 1, borderColor: tv.track },
 });

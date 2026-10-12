@@ -2,14 +2,17 @@ import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { MonthPicker } from '@/components/MonthPicker';
+import { StarInput } from '@/components/Stars';
 import { Button, Card, colors, H1, Muted, Notice, Screen } from '@/components/ui';
 import { fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
 import { dateLabel, eur, monthStart, shiftMonth } from '@/lib/format';
+import { stars, summarize } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 
 export default function AdminSales() {
   const [month, setMonth] = useState(monthStart());
   const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [rating, setRating] = useState<Record<number, number | null>>({});
   const { data, error, reload } = useLive(
     async () => {
       const [sales, board] = await Promise.all([fetchSales(month, shiftMonth(month, 1)), fetchLeaderboard(month)]);
@@ -28,13 +31,22 @@ export default function AdminSales() {
     reload();
   }
 
-  const sales = data?.sales ?? [];
+  async function rate(id: number, value: number | null) {
+    setRating((r) => ({ ...r, [id]: value }));
+    const { error: e } = await supabase.from('sales').update({ customer_rating: value }).eq('id', id);
+    if (e) setRating(({ [id]: _, ...rest }) => rest);
+    reload();
+  }
+
+  const sales = (data?.sales ?? []).map((s) => (s.id in rating ? { ...s, customer_rating: rating[s.id] } : s));
+  const avg = summarize(sales.map((s) => ({ ...s, seller_name: '' }))).avgRating;
   const board = data?.board ?? [];
   const withGoal = board.filter((r) => r.target_vehicles);
   const kpis = [
     ['Verkaufte Fahrzeuge', String(sales.length)],
     ['Provision gesamt', eur(sales.reduce((a, s) => a + s.commission, 0))],
     ['Bankprovision gesamt', eur(sales.reduce((a, s) => a + s.bank_commission, 0))],
+    ['Ø Kundenbewertung', stars(avg)],
     ['Monatsziel erreicht', `${withGoal.filter((r) => r.vehicles >= (r.target_vehicles ?? 0)).length} von ${withGoal.length}`],
   ];
 
@@ -70,6 +82,9 @@ export default function AdminSales() {
                 <Text style={[styles.cell, styles.r, { width: 110 }]}>{s.winter_wheels_price ? eur(s.winter_wheels_price) : '–'}</Text>
                 <Text style={[styles.cell, styles.r, { width: 100 }]}>{s.registration_price ? eur(s.registration_price) : '–'}</Text>
                 <Text style={[styles.cell, styles.r, { width: 100, fontWeight: '700' }]}>{eur(s.commission)}</Text>
+                <View style={{ width: 140, paddingLeft: 12 }}>
+                  <StarInput value={s.customer_rating} onChange={(v) => rate(s.id, v)} label={`Kundenbewertung ${s.vehicle}`} />
+                </View>
                 <View style={{ width: 120, paddingLeft: 8 }}>
                   <Button small variant="danger" title={confirmId === s.id ? 'Wirklich?' : 'Löschen'} onPress={() => remove(s.id)} />
                 </View>
@@ -78,6 +93,7 @@ export default function AdminSales() {
           </View>
         </ScrollView>
         {data && sales.length === 0 && <Muted>In diesem Monat wurden noch keine Verkäufe eingetragen.</Muted>}
+        {sales.length > 0 && <Muted>Kundenbewertung: Sterne antippen, um sie zu setzen. Den gleichen Stern nochmal antippen entfernt sie. Auf die Provision hat sie keinen Einfluss.</Muted>}
       </Card>
     </Screen>
   );
@@ -91,6 +107,7 @@ const COLS = [
   { key: 'w', label: 'Winterräder', w: 110, right: true },
   { key: 'z', label: 'Zulassung', w: 100, right: true },
   { key: 'p', label: 'Provision', w: 100, right: true },
+  { key: 's', label: 'Bewertung', w: 140 },
   { key: 'x', label: '', w: 120 },
 ];
 
