@@ -3,10 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { BrandBar, Button, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { fetchLeaderboard, fetchQuotes, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, firstName, monthLabel, monthStart } from '@/lib/format';
 import { gapToNextRank, goalProgress } from '@/lib/scoring';
-import { quoteOfDay } from '@/lib/quote';
 import { stars } from '@/lib/stats';
 
 export default function Scoreboard() {
@@ -14,13 +13,8 @@ export default function Scoreboard() {
   const { saved } = useLocalSearchParams<{ saved?: string }>();
   const month = monthStart();
   const { data, error } = useLive(async () => {
-    const [rows, team, ratings, quotes] = await Promise.all([
-      fetchLeaderboard(month),
-      fetchTeamProgress(month),
-      fetchRatings(month),
-      fetchQuotes().catch(() => []),
-    ]);
-    return { rows, team, ratings, quotes };
+    const [rows, team, ratings] = await Promise.all([fetchLeaderboard(month), fetchTeamProgress(month), fetchRatings(month)]);
+    return { rows, team, ratings };
   }, [month]);
   const rows = data?.rows;
 
@@ -32,18 +26,11 @@ export default function Scoreboard() {
   const goal = me ? goalProgress(me.vehicles, me.target_vehicles) : null;
   const team = data ? goalProgress(data.team.vehicles, data.team.target_vehicles) : null;
   const ratings = data?.ratings ?? {};
-  const quote = quoteOfDay(data?.quotes ?? []);
 
   return (
     <Screen>
       <BrandBar right={<Text onPress={signOut} style={styles.link} accessibilityRole="button">Abmelden</Text>} />
       <Text style={styles.hello}>Hallo {firstName(profile?.full_name ?? '')}</Text>
-      {quote && (
-        <View style={styles.quote}>
-          <Text style={styles.quoteLabel}>Spruch des Tages</Text>
-          <Text style={styles.quoteText}>„{quote.text}“</Text>
-        </View>
-      )}
 
       {me && (
         <View style={styles.me}>
@@ -147,9 +134,6 @@ const styles = StyleSheet.create({
   pos: { width: 28, textAlign: 'center', fontWeight: '800', fontSize: 18 },
   name: { flex: 1, fontWeight: '600', color: colors.fg },
   count: { fontWeight: '700', fontSize: 18, color: colors.fg, minWidth: 24, textAlign: 'right' },
-  quote: { borderLeftWidth: 4, borderColor: colors.accent, paddingLeft: 12, paddingVertical: 2, gap: 2 },
-  quoteLabel: { color: colors.accent, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  quoteText: { color: colors.fg, fontSize: 16, fontWeight: '600', fontStyle: 'italic' },
   stars: { color: '#b07a00', fontWeight: '600', fontVariant: ['tabular-nums'] },
   eur: { color: colors.muted, minWidth: 80, textAlign: 'right', fontVariant: ['tabular-nums'] },
 });

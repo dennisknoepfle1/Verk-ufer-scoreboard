@@ -1,4 +1,5 @@
 -- Spruch des Tages: eigene Verkaufssprüche, täglich wechselnd. Der Admin ergänzt oder entfernt Sprüche.
+-- Hinweis: Dennis hat den Spruch des Tages am 2026-10-12 wieder herausgenommen; die Tabelle bleibt ungenutzt bestehen.
 create table public.quotes (
   id bigint generated always as identity primary key,
   text text not null check (length(trim(text)) between 3 and 200),
