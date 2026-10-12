@@ -1,0 +1,27 @@
+name: App-Store-Builds
+
+# Manuell starten (Actions > App-Store-Builds > Run workflow).
+# Baut iOS und Android mit EAS und reicht sie bei Apple und Google ein.
+on:
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: Plattform
+        type: choice
+        options: [all, ios, android]
+        default: all
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx --yes eas-cli@latest init --non-interactive --force
+      - run: npx --yes eas-cli@latest build --platform ${{ inputs.platform }} --profile production --non-interactive --no-wait --auto-submit

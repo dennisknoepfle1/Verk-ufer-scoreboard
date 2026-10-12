@@ -1,0 +1,32 @@
+name: Web veröffentlichen
+
+# Baut Admin-Bereich, Büro-Anzeige und Web-App und stellt sie auf EAS Hosting online.
+# Benötigt im Repository: Secret EXPO_TOKEN sowie die Variablen
+# EXPO_PUBLIC_SUPABASE_URL und EXPO_PUBLIC_SUPABASE_ANON_KEY.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy-web
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ vars.EXPO_PUBLIC_SUPABASE_URL != '' }}
+    env:
+      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ vars.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Mit Expo-Projekt verknüpfen
+        run: npx --yes eas-cli@latest init --non-interactive --force
+      - run: npm run build:web
+      - name: Veröffentlichen
+        run: npx --yes eas-cli@latest deploy --prod --non-interactive
