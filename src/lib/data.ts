@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { BoardRow, Rates } from './scoring';
 import { supabase } from './supabase';
+import type { Quote } from '@/lib/quote';
 
 export type Sale = {
   id: number;
@@ -60,6 +61,12 @@ export async function fetchDisplayView(): Promise<DisplayView> {
   const { data, error } = await supabase.from('display_settings').select('view').maybeSingle();
   if (error) throw error;
   return (data?.view as DisplayView) ?? 'wechsel';
+}
+
+export async function fetchQuotes(): Promise<Quote[]> {
+  const { data, error } = await supabase.from('quotes').select('id, text').order('id');
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function fetchCurrentRates(): Promise<RatesRow | null> {

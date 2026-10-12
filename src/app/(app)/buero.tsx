@@ -5,8 +5,9 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
 import { Logo } from '@/components/ui';
-import { fetchDisplayView, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchDisplayView, fetchQuotes, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
+import { quoteOfDay } from '@/lib/quote';
 import { raceLanes } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
 
@@ -28,14 +29,15 @@ export default function Buero() {
   }, []);
 
   const { data, reload } = useLive(async () => {
-    const [rows, latest, team, ratings, setting] = await Promise.all([
+    const [rows, latest, team, ratings, setting, quotes] = await Promise.all([
       fetchLeaderboard(month),
       fetchLatestSale(),
       fetchTeamProgress(month),
       fetchRatings(month),
       fetchDisplayView().catch(() => 'wechsel' as const),
+      fetchQuotes().catch(() => []),
     ]);
-    return { rows, latest, team, ratings, setting };
+    return { rows, latest, team, ratings, setting, quotes };
   }, [month]);
 
   // Zusätzlich alle 10 Sekunden nachsehen, damit der Jubel auch ohne Live-Verbindung zeitnah kommt.
@@ -78,6 +80,7 @@ export default function Buero() {
   const teamTarget = team?.target_vehicles ?? 0;
   const teamPct = teamTarget > 0 ? Math.round(((team?.vehicles ?? 0) / teamTarget) * 100) : 0;
   const ratings = data?.ratings ?? {};
+  const quote = quoteOfDay(data?.quotes ?? []);
 
   return (
     <View style={[styles.root, { padding: 32 * s, gap: 14 * s }]}>
@@ -103,6 +106,14 @@ export default function Buero() {
             {team?.vehicles ?? 0}
             <Text style={{ color: '#ffffffb3' }}> / {teamTarget} Fahrzeuge</Text>
             {teamPct >= 100 ? <Text> ✓</Text> : null}
+          </Text>
+        </View>
+      )}
+      {quote && (
+        <View style={[styles.quote, { gap: 4 * s, paddingLeft: 16 * s, borderLeftWidth: 6 * s }]}>
+          <Text style={[styles.quoteLabel, { fontSize: 15 * s }]}>SPRUCH DES TAGES</Text>
+          <Text style={[styles.quoteText, { fontSize: 26 * s }]} numberOfLines={2}>
+            „{quote.text}“
           </Text>
         </View>
       )}
@@ -161,5 +172,8 @@ const styles = StyleSheet.create({
   teamLabel: { color: '#fff', fontWeight: '800', letterSpacing: 2 },
   teamTrack: { backgroundColor: '#00000040', borderRadius: 11, overflow: 'hidden' },
   teamFill: { height: '100%', backgroundColor: '#fff', borderRadius: 11 },
+  quote: { borderColor: tv.accent },
+  quoteLabel: { color: tv.accent, fontWeight: '800', letterSpacing: 2 },
+  quoteText: { flex: 1, color: tv.fg, fontWeight: '600', fontStyle: 'italic' },
   foot: { borderTopWidth: 1, borderColor: tv.track },
 });

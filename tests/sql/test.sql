@@ -114,4 +114,19 @@ do $$ begin
   assert (select view from display_settings) = 'rennen', 'Admin konnte Anzeige nicht ändern';
 end $$;
 
+-- Sprüche: alle lesen, nur der Admin pflegt (wir sind hier noch als Admin angemeldet)
+insert into quotes (text) values ('Testspruch vom Admin');
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+do $$ begin
+  assert (select count(*) from quotes) >= 30, 'Verkäufer sieht die Sprüche nicht';
+  begin
+    insert into quotes (text) values ('Verkäufer-Spruch');
+    assert false, 'Verkäufer hat Spruch angelegt';
+  exception when insufficient_privilege then null; end;
+end $$;
+delete from quotes where text = 'Testspruch vom Admin';
+do $$ begin
+  assert exists (select 1 from quotes where text = 'Testspruch vom Admin'), 'Verkäufer hat Spruch gelöscht';
+end $$;
+
 select 'ALLE SQL-TESTS OK' as result;

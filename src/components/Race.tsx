@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 import type { RaceLane } from '@/lib/scoring';
@@ -9,9 +9,13 @@ const useNative = false; // 'left' in Prozent lässt sich nur ohne nativen Treib
 
 /** Autorennen für die Büro-Anzeige: ein Auto je Verkäufer, Ziellinie = persönliches Monatsziel. */
 export function Race({ lanes, scale: s }: { lanes: RaceLane[]; scale: number }) {
-  const laneH = Math.min(78, Math.max(44, 460 / Math.max(1, lanes.length))) * s;
+  const [avail, setAvail] = useState(460 * s);
+  const gap = 6 * s;
+  const n = Math.max(1, lanes.length);
+  // Spuren füllen den freien Platz, werden aber nicht riesig und nicht winzig.
+  const laneH = Math.max(28 * s, Math.min(78 * s, (avail - gap * (n - 1)) / n));
   return (
-    <View style={{ flex: 1, justifyContent: 'center', gap: 6 * s }}>
+    <View style={{ flex: 1, justifyContent: 'center', gap }} onLayout={(e) => setAvail(e.nativeEvent.layout.height)}>
       {lanes.map((l, i) => (
         <Lane key={l.seller_id} lane={l} s={s} height={laneH} delay={i * 120} />
       ))}
