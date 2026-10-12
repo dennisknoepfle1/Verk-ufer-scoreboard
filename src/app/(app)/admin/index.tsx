@@ -97,7 +97,7 @@ const COLS = [
 const styles = StyleSheet.create({
   head: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   kpis: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  kpi: { flexGrow: 1, flexBasis: 200, gap: 2 },
+  kpi: { flexGrow: 1, flexBasis: 150, gap: 2 },
   kpiLabel: { color: colors.muted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   kpiValue: { fontSize: 26, fontWeight: '800', color: colors.fg },
   tr: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, borderColor: colors.line, paddingVertical: 6 },

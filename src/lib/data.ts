@@ -30,7 +30,7 @@ export async function fetchLeaderboard(month: string): Promise<BoardRow[]> {
   }));
 }
 
-export async function fetchLatestSale(): Promise<{ full_name: string; vehicle: string } | null> {
+export async function fetchLatestSale(): Promise<{ full_name: string; vehicle: string; created_at: string } | null> {
   const { data } = await supabase.rpc('latest_sale');
   return data?.[0] ?? null;
 }

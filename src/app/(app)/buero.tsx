@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Logo } from '@/components/ui';
 import { fetchLatestSale, fetchLeaderboard, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
@@ -21,10 +23,33 @@ export default function Buero() {
     return () => clearInterval(t);
   }, []);
 
-  const { data } = useLive(async () => {
+  const { data, reload } = useLive(async () => {
     const [rows, latest] = await Promise.all([fetchLeaderboard(month), fetchLatestSale()]);
     return { rows, latest };
   }, [month]);
+
+  // Zusätzlich alle 10 Sekunden nachsehen, damit der Jubel auch ohne Live-Verbindung zeitnah kommt.
+  useEffect(() => {
+    const t = setInterval(reload, 10_000);
+    return () => clearInterval(t);
+  }, [reload]);
+
+  // Jubel, sobald ein neuer Verkauf auftaucht (nicht beim ersten Laden). /buero?probe=1 zeigt eine Vorschau.
+  const { probe } = useLocalSearchParams<{ probe?: string }>();
+  const [party, setParty] = useState<CelebrationInfo | null>(
+    probe ? { key: 'probe', name: 'Max Mustermann', vehicle: 'VW Golf 8 Life' } : null,
+  );
+  const lastSeen = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    if (!data) return;
+    const latest = data.latest;
+    const stamp = latest?.created_at ?? null;
+    if (lastSeen.current !== undefined && stamp && stamp !== lastSeen.current && latest) {
+      setParty({ key: stamp, name: latest.full_name, vehicle: latest.vehicle });
+    }
+    lastSeen.current = stamp;
+  }, [data]);
+  const endParty = useCallback(() => setParty(null), []);
 
   const rows = data?.rows ?? [];
   const max = Math.max(1, ...rows.map((r) => r.vehicles));
@@ -69,6 +94,7 @@ export default function Buero() {
           'Noch keine Verkäufe'
         )}
       </Text>
+      {party && <Celebration info={party} onDone={endParty} scale={s} />}
     </View>
   );
 }
