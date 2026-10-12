@@ -61,6 +61,7 @@ export default function Scoreboard() {
         <Notice tone="danger">Keine Verbindung. Rangliste und Ziele erscheinen, sobald du wieder Netz hast. Verkäufe kannst du trotzdem eintragen.</Notice>
         {pendingBox}
         <Button title="Verkauf eintragen" onPress={() => router.push('/neu')} />
+        <Button variant="ghost" title="Erneut versuchen" onPress={reload} />
       </Screen>
     ) : (
       <Loading />

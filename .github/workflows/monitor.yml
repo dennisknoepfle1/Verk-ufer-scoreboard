@@ -1,0 +1,49 @@
+name: Überwachung
+
+# Prüft alle 10 Minuten, ob die Live-App und Supabase laufen.
+# Bei einem Ausfall wird ein Issue „Scoreboard gestört“ angelegt (GitHub schickt dazu eine E-Mail),
+# sobald wieder alles läuft, wird es automatisch geschlossen.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+concurrency: monitor
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Prüfwerkzeug installieren
+        run: |
+          mkdir -p /tmp/live-check && cd /tmp/live-check && npm init -y >/dev/null && npm i playwright@1.56.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cp "$GITHUB_WORKSPACE/scripts/live-check.mjs" .
+      - name: Live-App prüfen
+        id: check
+        continue-on-error: true
+        run: set -a && . ./.env.production && set +a && node /tmp/live-check/live-check.mjs https://verkaeufer-scoreboard.expo.app 2>&1 | tee result.txt; exit ${PIPESTATUS[0]}
+      - name: Alarm auslösen oder aufheben
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.check.outcome }}
+        run: |
+          open=$(gh issue list --state open --search 'in:title "Scoreboard gestört"' --json number --jq '.[0].number')
+          if [ "$OUTCOME" = "failure" ]; then
+            if [ -z "$open" ]; then
+              { echo "Die automatische Prüfung hat einen Fehler gefunden ($(date -u '+%d.%m.%Y %H:%M') UTC):"; echo; echo '```'; cat result.txt; echo '```'; echo; echo "Lauf: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"; } > body.md
+              gh issue create --title "Scoreboard gestört" --body-file body.md --assignee "${{ github.repository_owner }}" || gh issue create --title "Scoreboard gestört" --body-file body.md
+            fi
+            exit 1
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "Läuft wieder ($(date -u '+%d.%m.%Y %H:%M') UTC)."
+          fi

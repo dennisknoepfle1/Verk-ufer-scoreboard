@@ -1,7 +1,7 @@
 // Service Worker: hält die App auf dem Handy bereit, damit sie auch ohne Netz startet (Offline eintragen).
 // Seiten: erst Netz, ohne Netz die gespeicherte Version. Dateien mit Hash im Namen: aus dem Speicher, alles andere erst aus dem Netz.
 // Push: zeigt Benachrichtigungen zu neuen Verkäufen und öffnet beim Antippen die App.
-const CACHE = 'scoreboard-v3';
+const CACHE = 'scoreboard-v4';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.add('/')).then(() => self.skipWaiting()));
@@ -22,13 +22,19 @@ self.addEventListener('fetch', (e) => {
   if (req.method !== 'GET' || url.origin !== self.location.origin) return; // Datenbank-Anfragen nie aus dem Speicher
 
   if (req.mode === 'navigate') {
+    // Erst Netz; hängt das Netz (z. B. nach dem Ruhezustand) länger als 5 s, die gespeicherte Seite nehmen.
+    const network = fetch(req).then((res) => {
+      if (res.ok) {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put('/', copy));
+      }
+      return res;
+    });
+    const fallback = new Promise((resolve) => setTimeout(resolve, 5000)).then(() => caches.match('/'));
     e.respondWith(
-      fetch(req)
-        .then((res) => {
-          if (res.ok) caches.open(CACHE).then((c) => c.put('/', res.clone()));
-          return res;
-        })
-        .catch(() => caches.match('/')),
+      Promise.race([network.catch(() => caches.match('/')), fallback.then((hit) => hit || network)]).then(
+        (res) => res || network,
+      ),
     );
     return;
   }

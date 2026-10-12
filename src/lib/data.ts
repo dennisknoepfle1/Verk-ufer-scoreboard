@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 
 import type { BoardRow, Rates } from './scoring';
 import { supabase } from './supabase';
@@ -128,6 +129,12 @@ export async function fetchSales(month: string, nextMonth: string): Promise<Sale
 }
 
 /** Lädt Daten und lädt neu, sobald sich Verkäufe oder Ziele ändern (Live) und spätestens jede Minute. */
+/** Abgelaufene Anmeldung (z. B. nach Stunden im Hintergrund)? Dann Token erneuern und noch einmal versuchen. */
+function isAuthExpired(e: unknown) {
+  const m = String((e as { message?: string })?.message ?? e).toLowerCase();
+  return m.includes('jwt') || m.includes('401') || m.includes('unauthorized');
+}
+
 export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,6 +143,11 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
 
   const run = useCallback(() => {
     reload()
+      .catch(async (e) => {
+        if (!isAuthExpired(e)) throw e;
+        await supabase.auth.refreshSession();
+        return reload();
+      })
       .then((d) => {
         setData(d);
         setError(null);
@@ -154,9 +166,24 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kudos' }, run)
       .subscribe();
     const timer = setInterval(run, 60_000);
+    // Zurück aus dem Hintergrund oder wieder Netz: sofort frisch laden statt auf den nächsten Takt zu warten.
+    const onVisible = () => {
+      if (typeof document === 'undefined' || document.visibilityState === 'visible') run();
+    };
+    const web = Platform.OS === 'web' && typeof window !== 'undefined';
+    if (web) {
+      document.addEventListener('visibilitychange', onVisible);
+      window.addEventListener('online', run);
+      window.addEventListener('pageshow', onVisible);
+    }
     return () => {
       clearInterval(timer);
       supabase.removeChannel(channel);
+      if (web) {
+        document.removeEventListener('visibilitychange', onVisible);
+        window.removeEventListener('online', run);
+        window.removeEventListener('pageshow', onVisible);
+      }
     };
   }, [run]);
 

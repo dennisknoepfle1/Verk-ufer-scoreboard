@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -139,12 +139,30 @@ export function Meter({ percent, color = colors.accent }: { percent: number; col
   );
 }
 
-export function Loading() {
+/** Nie endlos drehen: nach 10 Sekunden gibt es einen Hinweis und einen Knopf zum Neuladen. */
+export function Loading({ slowAfterMs = 10_000 }: { slowAfterMs?: number }) {
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setSlow(true), slowAfterMs);
+    return () => clearTimeout(t);
+  }, [slowAfterMs]);
   return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16, backgroundColor: colors.bg }}>
       <ActivityIndicator color={colors.accent} />
+      {slow && (
+        <View style={{ alignItems: 'center', gap: 12, maxWidth: 320 }} {...ui('slow-load')}>
+          <Text style={{ color: colors.fg, textAlign: 'center', fontWeight: '600' }}>
+            Das dauert ungewöhnlich lange. Meist hilft es, die App neu zu laden.
+          </Text>
+          <Button title="Neu laden" onPress={reloadApp} />
+        </View>
+      )}
     </View>
   );
+}
+
+export function reloadApp() {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') window.location.reload();
 }
 
 const styles = StyleSheet.create({

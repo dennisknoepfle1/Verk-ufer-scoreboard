@@ -1,6 +1,8 @@
 name: Web veröffentlichen
 
 # Baut Admin-Bereich, Büro-Anzeige und Web-App und stellt sie auf EAS Hosting online.
+# Sicher veröffentlichen: erst als Vorschau hochladen und wie ein Besucher testen,
+# nur wenn alles läuft, wird die Vorschau zur Live-Version. Sonst bleibt die alte Version live.
 # Benötigt im Repository das Secret EXPO_TOKEN. Die Supabase-Werte stehen in .env.production.
 on:
   push:
@@ -25,11 +27,28 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Prüfungen (Typen und Tests)
+        run: npm run typecheck && npm test
       - name: Mit Expo-Projekt verknüpfen
         run: npx --yes eas-cli@latest init --non-interactive --force
       - run: npm run build:web
-      - name: Veröffentlichen
+      - name: Als Vorschau hochladen
+        run: |
+          npx --yes eas-cli@latest deploy --non-interactive 2>&1 | tee preview.log
+          url=$(grep -oE 'https://[a-z0-9-]+--[a-z0-9-]+\.expo\.app' preview.log | head -1)
+          [ -z "$url" ] && { echo "Vorschau-Adresse nicht gefunden"; exit 1; }
+          echo "PREVIEW_URL=$url" >> "$GITHUB_ENV"
+      - name: Prüfwerkzeug installieren
+        run: |
+          mkdir -p /tmp/live-check && cd /tmp/live-check && npm init -y >/dev/null && npm i playwright@1.56.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+          cp "$GITHUB_WORKSPACE/scripts/live-check.mjs" .
+      - name: Vorschau wie ein Besucher testen
+        run: set -a && . ./.env.production && set +a && node /tmp/live-check/live-check.mjs "$PREVIEW_URL"
+      - name: Live schalten
         run: npx --yes eas-cli@latest deploy --prod --non-interactive 2>&1 | tee deploy.log
+      - name: Live-Version testen
+        run: set -a && . ./.env.production && set +a && node /tmp/live-check/live-check.mjs https://verkaeufer-scoreboard.expo.app
       - name: Adresse auf GitHub vermerken
         env:
           GH_TOKEN: ${{ github.token }}
