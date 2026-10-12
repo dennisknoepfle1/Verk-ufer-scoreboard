@@ -1,6 +1,6 @@
 import { Redirect } from 'expo-router';
 
-import { Button, Card, H1, Muted, Screen } from '@/components/ui';
+import { BrandBar, Button, Card, H1, Muted, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 
 export default function Pending() {
@@ -23,6 +23,7 @@ export default function Pending() {
   }
   return (
     <Screen maxWidth={420}>
+      <BrandBar />
       <H1>{inactive ? 'Konto deaktiviert' : 'Fast geschafft'}</H1>
       <Card>
         <Muted>

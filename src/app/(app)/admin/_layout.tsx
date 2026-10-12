@@ -2,7 +2,7 @@ import { Link, Redirect, Slot, usePathname } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { colors } from '@/components/ui';
+import { colors, Logo } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 
 const NAV = [
@@ -21,7 +21,10 @@ export default function AdminLayout() {
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
       <SafeAreaView edges={['top', 'left', 'right']} style={styles.bar}>
         <View style={styles.barInner}>
-          <Text style={styles.brand}>Scoreboard · Admin</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <Logo height={36} />
+            <Text style={styles.brand}>Scoreboard · Admin</Text>
+          </View>
           <View style={styles.nav}>
             {NAV.map((n) => {
               const active = n.href === '/admin' ? path === '/admin' : path.startsWith(n.href);
@@ -43,10 +46,10 @@ export default function AdminLayout() {
 }
 
 const styles = StyleSheet.create({
-  bar: { backgroundColor: colors.surface, borderBottomWidth: 1, borderColor: colors.line },
+  bar: { backgroundColor: colors.surface, borderBottomWidth: 3, borderColor: colors.accent },
   barInner: { maxWidth: 1100, width: '100%', alignSelf: 'center', padding: 12, gap: 8, flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' },
-  brand: { fontWeight: '800', fontSize: 17, color: colors.fg },
+  brand: { fontWeight: '700', fontSize: 14, color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6 },
   nav: { flexDirection: 'row', flexWrap: 'wrap', gap: 4, flexShrink: 1, maxWidth: '100%' },
   navItem: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 7, color: colors.muted, fontWeight: '600' },
-  navActive: { backgroundColor: colors.accentSoft, color: colors.accent },
+  navActive: { backgroundColor: colors.accent, color: '#fff' },
 });

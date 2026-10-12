@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useState } from 'react';
 import { View } from 'react-native';
 
-import { Button, Card, Field, H1, Muted, Notice, Screen } from '@/components/ui';
+import { Button, Card, Field, H1, Logo, Muted, Notice, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/lib/supabase';
 
@@ -42,7 +42,10 @@ export default function Login() {
 
   return (
     <Screen maxWidth={420}>
-      <View style={{ height: 32 }} />
+      <View style={{ height: 24 }} />
+      <View style={{ alignItems: 'center', paddingBottom: 8 }}>
+        <Logo height={64} />
+      </View>
       <H1>Verkäufer-Scoreboard</H1>
       <Muted>{mode === 'login' ? 'Melde dich mit deinem Konto an.' : 'Lege dein Konto an. Danach schaltet dich die Verkaufsleitung frei.'}</Muted>
       <Card>

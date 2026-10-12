@@ -1,7 +1,7 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 
-import { Button, Card, Field, H1, Muted, Notice, Screen } from '@/components/ui';
+import { BrandBar, Button, Card, Field, H1, Muted, Notice, Screen } from '@/components/ui';
 import { fetchCurrentRates, type RatesRow } from '@/lib/data';
 import { eurCents } from '@/lib/format';
 import { calcCommission, parseEuro } from '@/lib/scoring';
@@ -49,6 +49,7 @@ export default function NewSale() {
 
   return (
     <Screen>
+      <BrandBar />
       <H1>Verkauf eintragen</H1>
       <Card>
         <Field label="Fahrzeug" placeholder="z. B. VW Golf 8 Life" value={vehicle} onChangeText={setVehicle} />

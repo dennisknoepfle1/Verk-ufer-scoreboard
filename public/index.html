@@ -12,7 +12,10 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Scoreboard" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="theme-color" content="#0b5fa5" />
+    <meta name="theme-color" content="#e30614" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" />
     <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
     <style id="expo-reset">
       html,
@@ -21,7 +24,12 @@
       }
       body {
         overflow: hidden;
-        background-color: #f3f5f7;
+        background-color: #f4f4f4;
+      }
+      /* Hausschrift der Autowelt Prusseit */
+      #root,
+      #root * {
+        font-family: 'Montserrat', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
       }
       #root {
         display: flex;

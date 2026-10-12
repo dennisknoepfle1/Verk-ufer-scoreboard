@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,14 +13,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+// Farben der Autowelt Prusseit (autowelt-prusseit.de): Rot #E30614, Anthrazit #54595F, Schwarz.
 export const colors = {
-  bg: '#f3f5f7',
+  bg: '#f4f4f4',
   surface: '#ffffff',
-  fg: '#17202a',
-  muted: '#5d6b78',
-  line: '#dde3e9',
-  accent: '#0b5fa5',
-  accentSoft: '#e3eef8',
+  fg: '#1d1d1b',
+  muted: '#54595f',
+  line: '#e2e2e2',
+  accent: '#e30614',
+  accentSoft: '#fdeced',
+  dark: '#1d1d1b',
   good: '#1f7a4d',
   goodSoft: '#e2f3ea',
   danger: '#b42318',
@@ -126,16 +129,16 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   scroll: { flexGrow: 1 },
   inner: { width: '100%', alignSelf: 'center', padding: 16, gap: 14 },
-  h1: { fontSize: 26, fontWeight: '700', color: colors.fg },
+  h1: { fontSize: 26, fontWeight: '800', color: colors.fg, textTransform: 'uppercase', letterSpacing: 0.3 },
   h2: { fontSize: 19, fontWeight: '700', color: colors.fg },
   muted: { color: colors.muted, fontSize: 14 },
-  card: { backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 10 },
-  btn: { borderRadius: 12, paddingVertical: 13, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  card: { backgroundColor: colors.surface, borderRadius: 8, borderWidth: 1, borderColor: colors.line, padding: 14, gap: 10 },
+  btn: { borderRadius: 6, paddingVertical: 13, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   btnSmall: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 8 },
   btnPrimary: { backgroundColor: colors.accent },
   btnGhost: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.line },
   btnDanger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.danger },
-  btnText: { fontSize: 16, fontWeight: '700' },
+  btnText: { fontSize: 15, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.6 },
   btnTextPrimary: { color: '#fff' },
   btnTextGhost: { color: colors.accent },
   btnTextDanger: { color: colors.danger },
@@ -145,13 +148,31 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 10,
+    borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 11,
     fontSize: 16,
     color: colors.fg,
   },
   notice: { borderRadius: 12, padding: 12 },
+  brandBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingBottom: 12, borderBottomWidth: 3, borderColor: colors.accent },
   meter: { height: 8, borderRadius: 4, backgroundColor: colors.line, overflow: 'hidden' },
   meterFill: { height: '100%', borderRadius: 4 },
 });
+
+const logo = require('../../assets/brand/logo.png');
+
+/** Logo der Autowelt Prusseit (Original 280 × 80 px). */
+export function Logo({ height = 44 }: { height?: number }) {
+  return <Image source={logo} accessibilityLabel="Autowelt Prusseit" style={{ height, width: (height * 280) / 80 }} resizeMode="contain" />;
+}
+
+/** Weiße Kopfzeile mit Logo und rotem Abschluss, wie auf autowelt-prusseit.de. */
+export function BrandBar({ right }: { right?: ReactNode }) {
+  return (
+    <View style={styles.brandBar}>
+      <Logo height={40} />
+      {right}
+    </View>
+  );
+}

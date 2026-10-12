@@ -1,7 +1,7 @@
 import { Link, Redirect, router, useLocalSearchParams } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { Button, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
+import { BrandBar, Button, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { fetchLeaderboard, useLive } from '@/lib/data';
 import { eur, firstName, monthLabel, monthStart } from '@/lib/format';
@@ -22,10 +22,8 @@ export default function Scoreboard() {
 
   return (
     <Screen>
-      <View style={styles.top}>
-        <Muted>Hallo {firstName(profile?.full_name ?? '')}</Muted>
-        <Text onPress={signOut} style={styles.link} accessibilityRole="button">Abmelden</Text>
-      </View>
+      <BrandBar right={<Text onPress={signOut} style={styles.link} accessibilityRole="button">Abmelden</Text>} />
+      <Text style={styles.hello}>Hallo {firstName(profile?.full_name ?? '')}</Text>
 
       {me && (
         <View style={styles.me}>
@@ -93,15 +91,15 @@ export default function Scoreboard() {
 }
 
 const styles = StyleSheet.create({
-  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  hello: { fontSize: 20, fontWeight: '700', color: colors.fg },
   link: { color: colors.accent, fontWeight: '600' },
-  me: { backgroundColor: colors.accent, borderRadius: 16, padding: 16, flexDirection: 'row', gap: 20, alignItems: 'center' },
+  me: { backgroundColor: colors.accent, borderRadius: 8, padding: 16, flexDirection: 'row', gap: 20, alignItems: 'center' },
   meLabel: { color: '#ffffffcc', fontSize: 13 },
   meRank: { color: '#fff', fontSize: 56, fontWeight: '800', lineHeight: 60 },
   meValue: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  gap: { backgroundColor: colors.accentSoft, borderRadius: 12, padding: 12 },
-  gapText: { color: colors.fg, fontSize: 15 },
-  goal: { borderWidth: 1, borderColor: colors.line, borderRadius: 12, padding: 12, gap: 8, backgroundColor: colors.surface },
+  gap: { backgroundColor: colors.dark, borderRadius: 8, padding: 12 },
+  gapText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  goal: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 8, backgroundColor: colors.surface },
   goalDone: { backgroundColor: colors.goodSoft, borderColor: colors.good },
   goalLabel: { color: colors.muted },
   goalValue: { fontWeight: '700', fontSize: 17, color: colors.fg },

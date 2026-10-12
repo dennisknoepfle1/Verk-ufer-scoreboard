@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { Logo } from '@/components/ui';
 import { fetchLatestSale, fetchLeaderboard, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 
-const tv = { bg: '#0d1520', row: '#152232', fg: '#eef3f8', muted: '#8ea0b3', accent: '#4fb0f0', track: '#22344a', good: '#5cc98f' };
+// Dunkle Anzeige im Prusseit-Look: Schwarz, Anthrazit und Prusseit-Rot.
+const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f' };
 const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
 
 /** Vollbild-Rangliste für den Bildschirm im Büro. Aktualisiert sich selbst. */
@@ -30,7 +32,12 @@ export default function Buero() {
   return (
     <View style={[styles.root, { padding: 32 * s, gap: 14 * s }]}>
       <View style={styles.head}>
-        <Text style={[styles.title, { fontSize: 44 * s }]}>VERKÄUFER-RANGLISTE</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 * s }}>
+          <View style={[styles.logoPlate, { padding: 8 * s }]}>
+            <Logo height={52 * s} />
+          </View>
+          <Text style={[styles.title, { fontSize: 44 * s }]}>VERKÄUFER-RANGLISTE</Text>
+        </View>
         <Text style={[styles.muted, { fontSize: 20 * s }]}>{monthLabel(month)}</Text>
       </View>
       <View style={{ flex: 1, gap: 8 * s }}>
@@ -68,7 +75,8 @@ export default function Buero() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tv.bg },
-  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', flexWrap: 'wrap' },
+  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, borderBottomWidth: 4, borderColor: tv.accent, paddingBottom: 14 },
+  logoPlate: { backgroundColor: '#fff', borderRadius: 6 },
   title: { color: tv.fg, fontWeight: '800', letterSpacing: 1.5 },
   muted: { color: tv.muted },
   row: { flexDirection: 'row', alignItems: 'center', backgroundColor: tv.row, borderRadius: 8 },
