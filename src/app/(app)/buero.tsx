@@ -1,6 +1,6 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View, type LayoutChangeEvent } from 'react-native';
 
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
@@ -17,6 +17,15 @@ const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', acc
 const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
 const ROTATE_MS = 30_000;
 type Ansicht = 'liste' | 'rennen' | 'einkauf';
+
+/** Zeilen so weit verkleinern, dass alle in den freien Platz passen (nie größer als normal). */
+function fitFactor(available: number, rows: number, s: number) {
+  if (!available || rows === 0) return 1;
+  const gap = 8 * s;
+  const natural = rows * ROW_HEIGHT * s + (rows - 1) * gap;
+  return Math.max(0.45, Math.min(1, (available - (rows - 1) * gap * 0.5) / natural));
+}
+const ROW_HEIGHT = 62; // Zeilenhöhe bei Maßstab 1 (Abstand oben/unten + Schrift)
 
 /** Vollbild-Rangliste für den Bildschirm im Büro. Aktualisiert sich selbst. */
 export default function Buero() {
@@ -98,6 +107,9 @@ export default function Buero() {
   const ratings = data?.ratings ?? {};
   const icons = Object.fromEntries(Object.entries(data?.badges ?? {}).map(([id, list]) => [id, badgeIcons(list)]));
   const top = data?.feed?.[0];
+  const [listH, setListH] = useState(0);
+  const onList = (e: LayoutChangeEvent) => setListH(e.nativeEvent.layout.height);
+  const k = s * fitFactor(listH, view === 'einkauf' ? (buyers?.length ?? 0) : rows.length, s);
   const lastComment = top?.comments[top.comments.length - 1];
 
   return (
@@ -142,16 +154,16 @@ export default function Buero() {
         </View>
       )}
       {view === 'einkauf' ? (
-        <View style={{ flex: 1, gap: 8 * s }}>
+        <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: 8 * k }} onLayout={onList}>
           {(buyers ?? []).map((b) => (
-            <View key={b.buyer} style={[styles.row, { paddingVertical: 10 * s, paddingHorizontal: 16 * s, gap: 20 * s }]} {...ui(b.rank === 1 ? 'tv-lead' : 'tv-row')}>
-              <Text style={[styles.cell, { width: 56 * s, fontSize: 32 * s, color: podium[b.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{b.rank}</Text>
-              <Text style={[styles.cell, { flex: 1.7, fontSize: 30 * s }]} numberOfLines={1}>{b.buyer}</Text>
-              <View style={[styles.track, { flex: 1.3, height: 14 * s }]}>
+            <View key={b.buyer} style={[styles.row, { paddingVertical: 10 * k, paddingHorizontal: 16 * k, gap: 20 * k }]} {...ui(b.rank === 1 ? 'tv-lead' : 'tv-row')}>
+              <Text style={[styles.cell, { width: 56 * k, fontSize: 32 * k, color: podium[b.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{b.rank}</Text>
+              <Text style={[styles.cell, { flex: 1.7, fontSize: 30 * k }]} numberOfLines={1}>{b.buyer}</Text>
+              <View style={[styles.track, { flex: 1.3, height: 14 * k }]}>
                 <View style={[styles.fill, { width: `${(b.vehicles / Math.max(1, buyers?.[0]?.vehicles ?? 1)) * 100}%` }]} {...ui('tv-fill')} />
               </View>
-              <Text style={[styles.cell, { width: 260 * s, fontSize: 30 * s, textAlign: 'right' }]}>
-                {b.vehicles} <Text style={{ color: tv.muted, fontSize: 22 * s }}>{b.vehicles === 1 ? 'Fahrzeug' : 'Fahrzeuge'}</Text>
+              <Text style={[styles.cell, { width: 260 * s, fontSize: 30 * k, textAlign: 'right' }]}>
+                {b.vehicles} <Text style={{ color: tv.muted, fontSize: 22 * k }}>{b.vehicles === 1 ? 'Fahrzeug' : 'Fahrzeuge'}</Text>
               </Text>
             </View>
           ))}
@@ -159,30 +171,30 @@ export default function Buero() {
       ) : view === 'rennen' ? (
         <Race lanes={raceLanes(rows)} scale={s} icons={icons} />
       ) : (
-      <View style={{ flex: 1, gap: 8 * s }}>
+      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: 8 * k }} onLayout={onList}>
         {rows.map((r) => {
           const reached = r.target_vehicles != null && r.target_vehicles > 0 && r.vehicles >= r.target_vehicles;
           return (
-            <View key={r.seller_id} style={[styles.row, { paddingVertical: 10 * s, paddingHorizontal: 16 * s, gap: 20 * s }]} {...ui(r.rank === 1 ? 'tv-lead' : 'tv-row')}>
-              <Text style={[styles.cell, { width: 56 * s, fontSize: 32 * s, color: podium[r.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{r.rank}</Text>
-              <View style={{ flex: 1.7, flexDirection: 'row', alignItems: 'center', gap: 8 * s }}>
-                <Text style={[styles.cell, { flexShrink: 1, fontSize: 30 * s }]} numberOfLines={1}>
+            <View key={r.seller_id} style={[styles.row, { paddingVertical: 10 * k, paddingHorizontal: 16 * k, gap: 20 * k }]} {...ui(r.rank === 1 ? 'tv-lead' : 'tv-row')}>
+              <Text style={[styles.cell, { width: 56 * k, fontSize: 32 * k, color: podium[r.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{r.rank}</Text>
+              <View style={{ flex: 1.7, flexDirection: 'row', alignItems: 'center', gap: 8 * k }}>
+                <Text style={[styles.cell, { flexShrink: 1, fontSize: 30 * k }]} numberOfLines={1}>
                   {r.full_name}
                 </Text>
-                {icons[r.seller_id] ? <Text style={{ fontSize: 22 * s, flexShrink: 0 }} numberOfLines={1}>{icons[r.seller_id]}</Text> : null}
+                {icons[r.seller_id] ? <Text style={{ fontSize: 22 * k, flexShrink: 0 }} numberOfLines={1}>{icons[r.seller_id]}</Text> : null}
               </View>
-              <View style={[styles.track, { flex: 1.3, height: 14 * s }]}>
+              <View style={[styles.track, { flex: 1.3, height: 14 * k }]}>
                 <View style={[styles.fill, { width: `${(r.vehicles / max) * 100}%` }]} {...ui('tv-fill')} />
               </View>
-              <Text style={[styles.cell, { width: 140 * s, fontSize: 30 * s, textAlign: 'right' }]}>
+              <Text style={[styles.cell, { width: 140 * k, fontSize: 30 * k, textAlign: 'right' }]}>
                 {r.vehicles}
                 {r.target_vehicles ? <Text style={{ color: tv.muted }}>/{r.target_vehicles}</Text> : null}
                 {reached ? <Text style={{ color: tv.good }}> ✓</Text> : null}
               </Text>
-              <Text style={[styles.cell, { width: 100 * s, fontSize: 26 * s, textAlign: 'right', color: ratings[r.seller_id] ? tv.gold : tv.track }]}>
+              <Text style={[styles.cell, { width: 100 * k, fontSize: 26 * k, textAlign: 'right', color: ratings[r.seller_id] ? tv.gold : tv.track }]}>
                 {stars(ratings[r.seller_id]?.avg ?? null)}
               </Text>
-              <Text style={[styles.cell, styles.muted, { width: 150 * s, fontSize: 26 * s, textAlign: 'right' }]}>{eur(r.commission)}</Text>
+              <Text style={[styles.cell, styles.muted, { width: 150 * k, fontSize: 26 * k, textAlign: 'right' }]}>{eur(r.commission)}</Text>
             </View>
           );
         })}
