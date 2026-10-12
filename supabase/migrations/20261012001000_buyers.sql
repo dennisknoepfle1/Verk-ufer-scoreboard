@@ -25,17 +25,34 @@ end;
 $$;
 
 -- Rangliste der Einkäufer für den laufenden Monat (deutsche Zeit). Stornos zählen nicht.
+-- Asana-Nutzer ohne Namen erscheinen mit E-Mail; daraus wird „Vorname Nachname“.
 create function public.buyer_leaderboard() returns table (buyer text, vehicles int, rank int)
 language sql stable set search_path = '' as $$
   with counts as (
-    select d.created_by as buyer, count(*)::int as vehicles
+    select case when d.created_by like '%@%' then initcap(replace(split_part(d.created_by, '@', 1), '.', ' ')) else d.created_by end as buyer,
+           count(*)::int as vehicles
     from public.asana_current() d
     where d.created_by is not null
       and d.section not ilike '%storno%'
       and (d.created_at at time zone 'Europe/Berlin') >= date_trunc('month', now() at time zone 'Europe/Berlin')
-    group by d.created_by
+    group by 1
   )
   select buyer, vehicles, (rank() over (order by vehicles desc))::int from counts order by vehicles desc, buyer;
 $$;
 revoke all on function public.buyer_leaderboard() from public, anon;
 grant execute on function public.buyer_leaderboard() to authenticated;
+
+-- Abruf dauert bei vielen Aufgaben länger als die 5-s-Standardwartezeit von pg_net.
+create or replace function public.asana_trigger_sync() returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+  perform net.http_post(
+    url := 'https://utivqklwuotsnhunassd.supabase.co/functions/v1/asana-sync',
+    body := '{}'::jsonb,
+    headers := '{"Content-Type": "application/json"}'::jsonb,
+    timeout_milliseconds := 60000
+  );
+exception when others then
+  null; -- Ein Asana-Problem darf nie etwas anderes blockieren.
+end;
+$$;
