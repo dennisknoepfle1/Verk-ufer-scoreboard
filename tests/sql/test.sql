@@ -249,11 +249,36 @@ reset role;
 set role authenticated;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
 do $$ begin
+  -- Startliste ist gesetzt: Anna/Ben stehen nicht drauf
+  assert (select count(*) from buyer_leaderboard()) = 6, 'nur die 6 Einkäufer der Liste';
+  assert (select vehicles from buyer_leaderboard() where buyer = 'Cem Turan') = 0, 'Einkäufer ohne Aufgaben mit 0';
+  assert (select vehicles from asana_creators() where name = 'Anna') = 2, 'Ersteller-Liste fürs Admin';
+  begin
+    insert into asana_buyers (name) values ('Anna');
+    assert false, 'Verkäufer darf Einkäufer nicht anlegen';
+  exception when insufficient_privilege then null; end;
+end $$;
+-- ohne Liste zählen alle Ersteller
+reset role;
+create temp table saved_buyers as select * from public.asana_buyers;
+delete from public.asana_buyers where true;
+set role authenticated;
+do $$ begin
   assert (select vehicles from buyer_leaderboard() where buyer = 'Anna') = 2, 'Anna sollte 2 haben';
   assert (select vehicles from buyer_leaderboard() where buyer = 'Ben') = 1, 'Ben: Storno und Vormonat zählen nicht';
   assert (select rank from buyer_leaderboard() where buyer = 'Anna') = 1, 'Anna Platz 1';
   assert (select vehicles from buyer_leaderboard() where buyer = 'Mario Rossi') = 1, 'E-Mail wird zu Namen';
   assert (select completed from asana_current() where task_gid = 'b2'), 'erledigt muss gespeichert sein';
 end $$;
+reset role;
+insert into public.asana_buyers select * from saved_buyers;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+set role authenticated;
+insert into asana_buyers (name) values ('Anna');
+do $$ begin
+  assert (select vehicles from buyer_leaderboard() where buyer = 'Anna') = 2, 'Admin fügt Anna hinzu';
+  assert (select rank from buyer_leaderboard() where buyer = 'Anna') = 1, 'Anna Platz 1';
+end $$;
+delete from asana_buyers where name = 'Anna';
 reset role;
 select 'ALLE SQL-TESTS OK' as result;

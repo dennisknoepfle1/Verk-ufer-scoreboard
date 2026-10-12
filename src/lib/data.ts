@@ -237,3 +237,25 @@ export async function fetchBuyers(): Promise<BuyerRow[] | null> {
     return null;
   }
 }
+
+export type CreatorRow = { name: string; vehicles: number };
+
+/** Admin: Wer zählt als Einkäufer, und wer hat diesen Monat sonst noch Aufgaben angelegt. */
+export async function fetchBuyerSetup(): Promise<{ buyers: string[]; creators: CreatorRow[] }> {
+  const [b, c] = await Promise.all([
+    supabase.from('asana_buyers').select('name').order('name'),
+    supabase.rpc('asana_creators'),
+  ]);
+  if (b.error) throw new Error(b.error.message);
+  return { buyers: (b.data ?? []).map((r) => r.name as string), creators: (c.data ?? []) as CreatorRow[] };
+}
+
+export async function addBuyer(name: string) {
+  const { error } = await supabase.from('asana_buyers').insert({ name: name.trim() });
+  if (error && error.code !== '23505') throw new Error(error.message);
+}
+
+export async function removeBuyer(name: string) {
+  const { error } = await supabase.from('asana_buyers').delete().eq('name', name);
+  if (error) throw new Error(error.message);
+}
