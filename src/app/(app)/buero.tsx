@@ -126,7 +126,7 @@ export default function Buero() {
           {monthLabel(month)}
         </Text>
       </View>
-      {teamTarget > 0 && (
+      {view !== 'einkauf' && teamTarget > 0 && (
         <View style={[styles.team, { paddingVertical: 12 * s, paddingHorizontal: 18 * s, gap: 20 * s }]} {...ui('team')}>
           <Text style={[styles.teamLabel, { fontSize: 24 * s }]}>TEAMZIEL</Text>
           <View style={[styles.teamTrack, { flex: 1, height: 22 * s }]}>
@@ -139,7 +139,7 @@ export default function Buero() {
           </Text>
         </View>
       )}
-      {pipeline && (
+      {view !== 'einkauf' && pipeline && (
         <View style={[styles.deliv, { paddingVertical: 10 * s, paddingHorizontal: 18 * s, gap: 18 * s }]} {...ui('deliv')}>
           <Text style={[styles.delivLabel, { fontSize: 22 * s }]}>CASHFLOW IM ZULAUF</Text>
           {pipeline.counts.map((c) => (
@@ -201,7 +201,9 @@ export default function Buero() {
       </View>
       )}
       <Text style={[styles.muted, styles.foot, { fontSize: 20 * s, paddingTop: 10 * s }]} numberOfLines={1}>
-        {data?.latest ? (
+        {view === 'einkauf' ? (
+          `Gezählt wird jedes Fahrzeug, das diesen Monat in Asana angelegt wurde${deliveryStand ? ` · Stand ${deliveryStand}` : ''}`
+        ) : data?.latest ? (
           <>
             Letzter Verkauf: <Text style={{ color: tv.accent }}>{data.latest.full_name}</Text> · {data.latest.vehicle}
             {top && top.likes > 0 ? <Text style={{ color: tv.fg }}>{'  '}👍 {top.likes}</Text> : null}
