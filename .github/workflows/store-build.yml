@@ -1,7 +1,8 @@
 name: App-Store-Builds
 
 # Manuell starten (Actions > App-Store-Builds > Run workflow).
-# Baut iOS und Android mit EAS und reicht sie bei Apple und Google ein.
+# Baut iOS und Android mit EAS. Einreichen erst aktivieren, wenn die erste Version
+# einmal von Hand im jeweiligen Store hochgeladen wurde und die Zugänge in Expo hinterlegt sind.
 on:
   workflow_dispatch:
     inputs:
@@ -10,6 +11,10 @@ on:
         type: choice
         options: [all, ios, android]
         default: all
+      submit:
+        description: Direkt bei Apple/Google einreichen
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -24,4 +29,4 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx --yes eas-cli@latest init --non-interactive --force
-      - run: npx --yes eas-cli@latest build --platform ${{ inputs.platform }} --profile production --non-interactive --no-wait --auto-submit
+      - run: npx --yes eas-cli@latest build --platform ${{ inputs.platform }} --profile production --non-interactive --no-wait ${{ inputs.submit && '--auto-submit' || '' }}
