@@ -53,6 +53,15 @@ export async function fetchRatings(month: string): Promise<Record<string, Rating
   return Object.fromEntries((data ?? []).map((r: any) => [r.seller_id, { avg: Number(r.avg_rating), count: r.rating_count }]));
 }
 
+export type DisplayView = 'wechsel' | 'liste' | 'rennen';
+
+/** Was die Büro-Anzeige zeigt (vom Admin gewählt). */
+export async function fetchDisplayView(): Promise<DisplayView> {
+  const { data, error } = await supabase.from('display_settings').select('view').maybeSingle();
+  if (error) throw error;
+  return (data?.view as DisplayView) ?? 'wechsel';
+}
+
 export async function fetchCurrentRates(): Promise<RatesRow | null> {
   const { data, error } = await supabase
     .from('commission_rates')
@@ -115,6 +124,7 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'sales' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_goals' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_goals' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'display_settings' }, run)
       .subscribe();
     const timer = setInterval(run, 60_000);
     return () => {

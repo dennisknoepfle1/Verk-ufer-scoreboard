@@ -103,4 +103,15 @@ do $$ begin
   assert (select target_vehicles from team_progress()) = 20, 'Verkäufer sieht Teamziel nicht';
 end $$;
 
+-- Büro-Anzeige: Verkäufer lesen die Einstellung, nur der Admin ändert sie
+update display_settings set view = 'rennen'; -- noch als Verkäufer 2: wirkt nicht
+do $$ begin
+  assert (select view from display_settings) = 'wechsel', 'Verkäufer hat Anzeige geändert';
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+update display_settings set view = 'rennen';
+do $$ begin
+  assert (select view from display_settings) = 'rennen', 'Admin konnte Anzeige nicht ändern';
+end $$;
+
 select 'ALLE SQL-TESTS OK' as result;

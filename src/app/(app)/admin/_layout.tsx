@@ -10,7 +10,7 @@ const NAV = [
   { href: '/admin/team', label: 'Team und Ziele' },
   { href: '/admin/statistik', label: 'Statistik' },
   { href: '/admin/provision', label: 'Provision' },
-  { href: '/buero', label: 'Büro-Anzeige' },
+  { href: '/admin/anzeige', label: 'Büro-Anzeige' },
 ] as const;
 
 export default function AdminLayout() {

@@ -5,7 +5,7 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
 import { Logo } from '@/components/ui';
-import { fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchDisplayView, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 import { raceLanes } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
@@ -28,8 +28,14 @@ export default function Buero() {
   }, []);
 
   const { data, reload } = useLive(async () => {
-    const [rows, latest, team, ratings] = await Promise.all([fetchLeaderboard(month), fetchLatestSale(), fetchTeamProgress(month), fetchRatings(month)]);
-    return { rows, latest, team, ratings };
+    const [rows, latest, team, ratings, setting] = await Promise.all([
+      fetchLeaderboard(month),
+      fetchLatestSale(),
+      fetchTeamProgress(month),
+      fetchRatings(month),
+      fetchDisplayView().catch(() => 'wechsel' as const),
+    ]);
+    return { rows, latest, team, ratings, setting };
   }, [month]);
 
   // Zusätzlich alle 10 Sekunden nachsehen, damit der Jubel auch ohne Live-Verbindung zeitnah kommt.
@@ -41,8 +47,10 @@ export default function Buero() {
   // Jubel, sobald ein neuer Verkauf auftaucht (nicht beim ersten Laden). /buero?probe=1 zeigt eine Vorschau.
   const { probe, ansicht } = useLocalSearchParams<{ probe?: string; ansicht?: string }>();
 
-  // Ansichten im Wechsel: Rangliste und Autorennen, je 30 Sekunden. /buero?ansicht=rennen oder =liste hält eine Ansicht fest.
-  const pinned = ansicht === 'rennen' || ansicht === 'liste' ? ansicht : null;
+  // Der Admin wählt unter Büro-Anzeige: nur Rangliste, nur Rennen oder Wechsel alle 30 Sekunden.
+  // /buero?ansicht=rennen oder =liste hält eine Ansicht auf diesem Bildschirm fest.
+  const setting = data?.setting ?? 'wechsel';
+  const pinned = ansicht === 'rennen' || ansicht === 'liste' ? ansicht : setting === 'wechsel' ? null : setting;
   const [view, setView] = useState<'liste' | 'rennen'>(pinned ?? 'liste');
   useEffect(() => {
     if (pinned) return setView(pinned);
