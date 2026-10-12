@@ -11,6 +11,7 @@ import { fetchBadges, fetchBuyers, fetchDeliveries, fetchDisplayView, fetchFeed,
 import { eur, monthLabel, monthStart } from '@/lib/format';
 import { raceLanes } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
+import { useAutoUpdate } from '@/lib/auto-update';
 
 // Dunkle Anzeige im Prusseit-Look: Schwarz, Anthrazit und Prusseit-Rot.
 const tv = { bg: '#141414', row: '#222223', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c' };
@@ -31,6 +32,7 @@ const ROW_HEIGHT = 62; // Zeilenhöhe bei Maßstab 1 (Abstand oben/unten + Schri
 export default function Buero() {
   const [month, setMonth] = useState(monthStart());
   const { width } = useWindowDimensions();
+  useAutoUpdate(); // neue Versionen kommen ohne Neuladen von Hand auf den Bildschirm
   const s = Math.max(0.6, Math.min(2, width / 1280)); // skaliert mit der Bildschirmbreite
 
   // Beim Monatswechsel automatisch auf den neuen Monat umschalten.
