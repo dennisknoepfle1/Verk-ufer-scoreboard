@@ -3,9 +3,9 @@ import { Linking, StyleSheet, Text, View } from 'react-native';
 
 import { Button, Card, colors, Field, H1, H2, Muted, Notice, Screen, ui } from '@/components/ui';
 import { fetchAsanaProject, fetchDeliveries, saveAsanaProject, syncAsanaNow, useLive } from '@/lib/data';
-import { deliverySummary, shortDate } from '@/lib/deliveries';
+import { pipelineSummary, shortDate } from '@/lib/deliveries';
 
-const STAGE_LABEL = { fertig: 'Fahrzeug fertig', auslieferung: 'Auslieferung', ausgeliefert: 'Ausgeliefert', sonstige: 'Sonstige' } as const;
+const STAGE_LABEL = { fertig: 'Fahrzeug fertig', auslieferung: 'Auslieferung', ausgeliefert: 'Auszahlung / Prüfung', sonstige: 'Sonstige' } as const;
 
 function timeLabel(iso: string | null | undefined) {
   if (!iso) return 'noch nie';
@@ -13,7 +13,7 @@ function timeLabel(iso: string | null | undefined) {
   return d.toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-/** Auslieferungen aus Asana: Übersicht, Liste und Einstellung des Projekts. */
+/** Cashflow aus Asana: Fahrzeuge in den drei Spalten bis zur Auszahlung, Liste und Einstellung des Projekts. */
 export default function Auslieferungen() {
   const { data, reload } = useLive(fetchDeliveries, []);
   const [ref, setRef] = useState('');
@@ -31,7 +31,7 @@ export default function Auslieferungen() {
   }, []);
 
   const status = data?.status;
-  const summary = data ? deliverySummary(data.rows) : null;
+  const summary = data ? pipelineSummary(data.rows) : null;
 
   async function save() {
     setBusy(true);
@@ -63,33 +63,22 @@ export default function Auslieferungen() {
 
   return (
     <Screen maxWidth={1000}>
-      <H1>Auslieferungen</H1>
+      <H1>Cashflow</H1>
       {msg && <Notice tone={msg.tone}>{msg.text}</Notice>}
 
       {summary && status?.last_success_at ? (
         <Card>
-          <H2>Nächste 7 Tage: {summary.next7}</H2>
+          <H2>Cashflow im Zulauf: {summary.total} Fahrzeuge</H2>
           <View style={styles.days}>
-            {summary.overdue > 0 && (
-              <View style={[styles.day, styles.overdue]} {...ui('kpi')}>
-                <Text style={styles.dayLabel}>Überfällig</Text>
-                <Text style={[styles.dayCount, { color: colors.danger }]}>{summary.overdue}</Text>
-              </View>
-            )}
-            {summary.days.map((d) => (
-              <View key={d.date} style={styles.day} {...ui('kpi')}>
-                <Text style={styles.dayLabel}>{d.label}</Text>
-                <Text style={styles.dayDate}>{shortDate(d.date)}</Text>
-                <Text style={[styles.dayCount, d.count === 0 && { color: colors.muted }]}>{d.count}</Text>
+            {summary.counts.map((c) => (
+              <View key={c.stage} style={styles.day} {...ui('kpi')}>
+                <Text style={styles.dayLabel}>{c.label}</Text>
+                <Text style={[styles.dayCount, c.count === 0 && { color: colors.muted }]}>{c.count}</Text>
               </View>
             ))}
-            <View style={styles.day} {...ui('kpi')}>
-              <Text style={styles.dayLabel}>Später / ohne Datum</Text>
-              <Text style={styles.dayCount}>{summary.later}</Text>
-            </View>
           </View>
           <Muted>
-            Stand: {timeLabel(status.last_success_at)} · zählt „Fahrzeug fertig“ und „Auslieferung“, „Auszahlung/Prüfung“ gilt als ausgeliefert.
+            Stand: {timeLabel(status.last_success_at)} · „Auszahlung / Prüfung“ ist am nächsten am Geld, danach Auslieferung und Fahrzeug fertig.
           </Muted>
         </Card>
       ) : null}
@@ -116,10 +105,10 @@ export default function Auslieferungen() {
         <Muted>Der Abruf läuft automatisch alle 15 Minuten und liest nur, er ändert nichts in Asana.</Muted>
       </Card>
 
-      {summary && summary.pending.length > 0 && (
+      {summary && summary.total > 0 && (
         <Card>
-          <H2>Anstehende Fahrzeuge ({summary.pending.length})</H2>
-          {summary.pending.map((d) => (
+          <H2>Fahrzeuge im Zulauf ({summary.total})</H2>
+          {summary.vehicles.map((d) => (
             <View key={d.task_gid} style={styles.item} {...ui('row')}>
               <Text style={styles.date}>{d.due_on ? shortDate(d.due_on) : '–'}</Text>
               <Text
@@ -140,14 +129,12 @@ export default function Auslieferungen() {
 
 const styles = StyleSheet.create({
   days: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  day: { minWidth: 92, borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 10, gap: 2, backgroundColor: colors.surface, alignItems: 'center' },
-  overdue: { borderColor: colors.danger },
+  day: { minWidth: 150, borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 10, gap: 2, backgroundColor: colors.surface, alignItems: 'center' },
   dayLabel: { color: colors.muted, fontWeight: '600', fontSize: 13 },
-  dayDate: { color: colors.muted, fontSize: 12 },
   dayCount: { color: colors.fg, fontWeight: '800', fontSize: 26 },
   actions: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   item: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8, paddingHorizontal: 6, borderRadius: 6 },
   date: { width: 56, fontWeight: '700', color: colors.fg, fontVariant: ['tabular-nums'] },
   name: { flex: 1, color: colors.fg, fontWeight: '600' },
-  stage: { color: colors.muted },
+  stage: { color: colors.muted, width: 190, textAlign: 'right' },
 });

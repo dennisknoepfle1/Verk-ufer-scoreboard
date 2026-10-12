@@ -1,55 +1,41 @@
-// Auslieferungen aus Asana: Übersicht der nächsten 7 Tage.
-// Anstehend = Spalte „Fahrzeug fertig“ oder „Auslieferung“. „Auszahlung/Prüfung“ gilt als ausgeliefert.
-// Ohne Datum oder später als 7 Tage: „Später / ohne Datum“.
+// Cashflow aus Asana: Fahrzeuge, für die Geld kommt.
+// Zählt die drei Board-Spalten „Fahrzeug fertig“, „Auslieferung“ und „Auszahlung/Prüfung“.
+// Je weiter rechts, desto näher ist das Geld: „Auszahlung/Prüfung“ kommt als Nächstes.
+
+export type Stage = 'fertig' | 'auslieferung' | 'ausgeliefert' | 'sonstige';
 
 export type Delivery = {
   task_gid: string;
   name: string;
   section: string;
-  stage: 'fertig' | 'auslieferung' | 'ausgeliefert' | 'sonstige';
+  stage: Stage;
   due_on: string | null;
   permalink_url: string | null;
 };
 
-export type DeliveryDay = { date: string; label: string; count: number };
-export type DeliverySummary = {
-  pending: Delivery[];
-  overdue: number;
-  days: DeliveryDay[];
-  next7: number;
-  later: number;
+/** Reihenfolge: zuerst die Spalte, aus der das Geld als Nächstes kommt. */
+export const PIPELINE: { stage: Exclude<Stage, 'sonstige'>; label: string; short: string }[] = [
+  { stage: 'ausgeliefert', label: 'Auszahlung / Prüfung', short: 'Auszahlung/Prüfung' },
+  { stage: 'auslieferung', label: 'Auslieferung', short: 'Auslieferung' },
+  { stage: 'fertig', label: 'Fahrzeug fertig', short: 'Fertig' },
+];
+
+export type PipelineSummary = {
+  vehicles: Delivery[];
+  counts: { stage: Exclude<Stage, 'sonstige'>; label: string; short: string; count: number }[];
+  total: number;
 };
 
-const WEEKDAYS = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
-
-/** Datum als JJJJ-MM-TT in Ortszeit. */
-export function isoDay(d: Date): string {
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+export function inPipeline(d: Delivery) {
+  return d.stage !== 'sonstige';
 }
 
-export function isPending(d: Delivery) {
-  return d.stage === 'fertig' || d.stage === 'auslieferung';
-}
-
-export function deliverySummary(rows: Delivery[], now = new Date()): DeliverySummary {
-  const pending = rows.filter(isPending);
-  const today = isoDay(now);
-  const days: DeliveryDay[] = [];
-  for (let i = 0; i < 7; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() + i);
-    const date = isoDay(d);
-    days.push({ date, label: i === 0 ? 'Heute' : i === 1 ? 'Morgen' : WEEKDAYS[d.getDay()], count: 0 });
-  }
-  const last = days[days.length - 1].date;
-  let overdue = 0;
-  let later = 0;
-  for (const r of pending) {
-    if (!r.due_on || r.due_on > last) later++;
-    else if (r.due_on < today) overdue++;
-    else days.find((d) => d.date === r.due_on)!.count++;
-  }
-  return { pending, overdue, days, next7: days.reduce((a, d) => a + d.count, 0), later };
+export function pipelineSummary(rows: Delivery[]): PipelineSummary {
+  const vehicles = rows.filter(inPipeline);
+  const rank = (s: Stage) => PIPELINE.findIndex((p) => p.stage === s);
+  vehicles.sort((a, b) => rank(a.stage) - rank(b.stage) || (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999') || a.name.localeCompare(b.name));
+  const counts = PIPELINE.map((p) => ({ ...p, count: vehicles.filter((v) => v.stage === p.stage).length }));
+  return { vehicles, counts, total: vehicles.length };
 }
 
 /** „14.10.“ */

@@ -6,7 +6,7 @@ import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
 import { Logo, ui } from '@/components/ui';
 import { badgeIcons, type BadgeKey } from '@/lib/badges';
-import { deliverySummary } from '@/lib/deliveries';
+import { pipelineSummary } from '@/lib/deliveries';
 import { fetchBadges, fetchDeliveries, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 import { raceLanes } from '@/lib/scoring';
@@ -42,9 +42,9 @@ export default function Buero() {
     return { rows, latest, team, ratings, setting, badges, feed };
   }, [month]);
 
-  // Auslieferungen aus Asana getrennt laden: Fehlt Asana oder hakt es, läuft die Anzeige ganz normal weiter.
+  // Cashflow aus Asana getrennt laden: Fehlt Asana oder hakt es, läuft die Anzeige ganz normal weiter.
   const { data: deliv } = useLive(fetchDeliveries, []);
-  const delivery = deliv?.status?.last_success_at ? deliverySummary(deliv.rows) : null;
+  const pipeline = deliv?.status?.last_success_at ? pipelineSummary(deliv.rows) : null;
   const deliveryStand = deliv?.status?.last_success_at
     ? new Date(deliv.status.last_success_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -120,21 +120,16 @@ export default function Buero() {
           </Text>
         </View>
       )}
-      {delivery && (
-        <View style={[styles.deliv, { paddingVertical: 10 * s, paddingHorizontal: 18 * s, gap: 14 * s }]} {...ui('deliv')}>
-          <Text style={[styles.delivLabel, { fontSize: 22 * s }]}>AUSLIEFERUNGEN</Text>
-          {delivery.overdue > 0 && (
-            <Text style={[styles.delivItem, { fontSize: 22 * s, color: tv.gold }]}>
-              Überfällig <Text style={styles.delivNum}>{delivery.overdue}</Text>
-            </Text>
-          )}
-          {delivery.days.map((d) => (
-            <Text key={d.date} style={[styles.delivItem, { fontSize: 22 * s }, d.count === 0 && { color: tv.muted }]}>
-              {d.label} <Text style={[styles.delivNum, d.count === 0 && { color: tv.muted }]}>{d.count}</Text>
+      {pipeline && (
+        <View style={[styles.deliv, { paddingVertical: 10 * s, paddingHorizontal: 18 * s, gap: 18 * s }]} {...ui('deliv')}>
+          <Text style={[styles.delivLabel, { fontSize: 22 * s }]}>CASHFLOW IM ZULAUF</Text>
+          {pipeline.counts.map((c) => (
+            <Text key={c.stage} style={[styles.delivItem, { fontSize: 22 * s }, c.count === 0 && { color: tv.muted }]}>
+              {c.short} <Text style={[styles.delivNum, c.count === 0 && { color: tv.muted }]}>{c.count}</Text>
             </Text>
           ))}
-          <Text style={[styles.delivItem, { fontSize: 22 * s }]}>
-            Später <Text style={styles.delivNum}>{delivery.later}</Text>
+          <Text style={[styles.delivItem, { fontSize: 22 * s, color: tv.gold }]}>
+            Gesamt <Text style={[styles.delivNum, { color: tv.gold }]}>{pipeline.total}</Text>
           </Text>
           <Text style={[styles.muted, { fontSize: 16 * s, marginLeft: 'auto' }]}>Stand {deliveryStand}</Text>
         </View>
