@@ -112,7 +112,7 @@ export async function fetchCurrentRates(): Promise<RatesRow | null> {
 export async function fetchSales(month: string, nextMonth: string): Promise<Sale[]> {
   const { data, error } = await supabase
     .from('sales')
-    .select('*, profiles(full_name)')
+    .select('*, profiles!sales_seller_id_fkey(full_name)')
     .gte('sold_on', month)
     .lt('sold_on', nextMonth)
     .order('sold_on', { ascending: false })
