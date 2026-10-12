@@ -9,6 +9,10 @@ on:
 
 concurrency: deploy-web
 
+permissions:
+  contents: read
+  deployments: write
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -25,4 +29,13 @@ jobs:
         run: npx --yes eas-cli@latest init --non-interactive --force
       - run: npm run build:web
       - name: Veröffentlichen
-        run: npx --yes eas-cli@latest deploy --prod --non-interactive
+        run: npx --yes eas-cli@latest deploy --prod --non-interactive 2>&1 | tee deploy.log
+      - name: Adresse auf GitHub vermerken
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(grep -oE 'https://[a-z0-9.-]+\.expo\.app' deploy.log | grep -v -- '--' | head -1)
+          [ -z "$url" ] && url=$(grep -oE 'https://[a-z0-9.-]+\.expo\.app' deploy.log | head -1)
+          echo "Web-Version: $url" >> "$GITHUB_STEP_SUMMARY"
+          id=$(gh api repos/${{ github.repository }}/deployments -f ref=${{ github.sha }} -f environment=production -F auto_merge=false -F required_contexts[] --jq .id)
+          gh api repos/${{ github.repository }}/deployments/$id/statuses -f state=success -f environment_url="$url" >/dev/null
