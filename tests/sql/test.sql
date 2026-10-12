@@ -200,4 +200,7 @@ do $$ begin
 end $$;
 reset role;
 \echo 'PUSH OK'
+set role anon;
+do $$ begin assert public.health(), 'health() muss ohne Login antworten'; end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;
