@@ -52,7 +52,7 @@ if (supabaseUrl && anonKey) {
   // Echte Datenbank-Abfrage (ohne Login liefert sie nur eine leere Liste). Hält nebenbei das kostenlose Projekt aktiv.
   await check('Supabase Datenbank antwortet', async () => {
     const res = await get(`${supabaseUrl}/rest/v1/display_settings?select=view`, {
-      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+      headers: { apikey: anonKey }, // Publishable Key nur als apikey, nicht als Bearer-Token
     });
     if (!res.ok) throw new Error(`Status ${res.status} (pausiert oder gestört?)`);
   });
