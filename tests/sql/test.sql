@@ -203,4 +203,36 @@ reset role;
 set role anon;
 do $$ begin assert public.health(), 'health() muss ohne Login antworten'; end $$;
 reset role;
+-- Asana: Verkäufer lesen Auslieferungen, aber nicht die Einstellung; nur der Admin ändert sie (stößt Abruf an).
+reset role;
+truncate net.calls;
+set role service_role;
+select public.asana_replace('[{"task_gid":"1","name":"VW Golf","section":"Auslieferung","stage":"auslieferung","due_on":"2026-10-14"},{"task_gid":"2","name":"Audi A4","section":"Fahrzeug fertig","stage":"fertig","due_on":""}]'::jsonb) = 2 as replaced \gset
+reset role;
+set role authenticated;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+do $$ begin
+  assert (select count(*) from asana_current()) = 2, 'Verkäufer sieht Auslieferungen nicht';
+  assert (select due_on from asana_deliveries where task_gid = '2') is null, 'leeres Datum muss null sein';
+  assert (select task_count from asana_sync) = 2, 'Abrufstatus fehlt';
+  assert (select count(*) from asana_settings) = 0, 'Verkäufer darf Einstellung nicht sehen';
+  begin
+    perform asana_replace('[]'::jsonb);
+    assert false, 'Verkäufer darf nicht ersetzen';
+  exception when insufficient_privilege then null; end;
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+update asana_settings set project_ref = 'https://app.asana.com/0/123/list';
+reset role;
+set role service_role;
+select public.asana_replace('[{"task_gid":"1","name":"VW Golf","section":"Auszahlung/ Prüfung","stage":"ausgeliefert","due_on":"2026-10-14"}]'::jsonb) = 1 as replaced \gset
+reset role;
+do $$ begin
+  assert (select count(*) from asana_current()) = 1, 'Alte Aufgaben dürfen nach neuem Abruf nicht mehr zählen';
+  assert (select stage from asana_current()) = 'ausgeliefert', 'Stand nicht aktualisiert';
+end $$;
+do $$ begin
+  assert (select project_ref from asana_settings) like '%123%', 'Admin konnte Projekt nicht setzen';
+  assert (select count(*) from net.calls where url like '%/asana-sync') = 1, 'Abruf nicht angestoßen';
+end $$;
 select 'ALLE SQL-TESTS OK' as result;

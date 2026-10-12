@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import type { BoardRow, Rates } from './scoring';
 import { supabase } from './supabase';
 import { groupBadges, type BadgeKey } from './badges';
+import type { Delivery } from './deliveries';
 
 export type Sale = {
   id: number;
@@ -164,6 +165,7 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_goals' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'display_settings' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kudos' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'asana_sync' }, run)
       .subscribe();
     const timer = setInterval(run, 60_000);
     // Zurück aus dem Hintergrund oder wieder Netz: sofort frisch laden statt auf den nächsten Takt zu warten.
@@ -188,4 +190,37 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
   }, [run]);
 
   return { data, error, reload: run };
+}
+
+export type AsanaStatus = { last_attempt_at: string | null; last_success_at: string | null; last_error: string | null; task_count: number };
+
+/** Auslieferungen aus Asana. Darf nie etwas blockieren: bei Fehlern null (Feld wird dann ausgeblendet). */
+export async function fetchDeliveries(): Promise<{ rows: Delivery[]; status: AsanaStatus | null } | null> {
+  try {
+    const [rows, status] = await Promise.all([
+      supabase.rpc('asana_current'),
+      supabase.from('asana_sync').select('last_attempt_at, last_success_at, last_error, task_count').maybeSingle(),
+    ]);
+    if (rows.error || status.error) return null;
+    return { rows: (rows.data ?? []) as Delivery[], status: (status.data as AsanaStatus | null) ?? null };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchAsanaProject(): Promise<string> {
+  const { data, error } = await supabase.from('asana_settings').select('project_ref').maybeSingle();
+  if (error) throw error;
+  return data?.project_ref ?? '';
+}
+
+export async function saveAsanaProject(ref: string) {
+  const { error } = await supabase.from('asana_settings').update({ project_ref: ref.trim() }).eq('id', true);
+  if (error) throw error;
+}
+
+/** „Jetzt abrufen“: stößt den Abruf sofort an. */
+export async function syncAsanaNow() {
+  const { error } = await supabase.functions.invoke('asana-sync', { body: {} });
+  if (error) throw error;
 }
