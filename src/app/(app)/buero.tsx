@@ -5,7 +5,8 @@ import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
 import { Logo } from '@/components/ui';
-import { fetchDisplayView, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
+import { badgeIcons, type BadgeKey } from '@/lib/badges';
+import { fetchBadges, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 import { raceLanes } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
@@ -28,14 +29,16 @@ export default function Buero() {
   }, []);
 
   const { data, reload } = useLive(async () => {
-    const [rows, latest, team, ratings, setting] = await Promise.all([
+    const [rows, latest, team, ratings, setting, badges, feed] = await Promise.all([
       fetchLeaderboard(month),
       fetchLatestSale(),
       fetchTeamProgress(month),
       fetchRatings(month),
       fetchDisplayView().catch(() => 'wechsel' as const),
+      fetchBadges(month).catch((): Record<string, BadgeKey[]> => ({})),
+      fetchFeed(1).catch(() => []),
     ]);
-    return { rows, latest, team, ratings, setting };
+    return { rows, latest, team, ratings, setting, badges, feed };
   }, [month]);
 
   // Zusätzlich alle 10 Sekunden nachsehen, damit der Jubel auch ohne Live-Verbindung zeitnah kommt.
@@ -78,6 +81,9 @@ export default function Buero() {
   const teamTarget = team?.target_vehicles ?? 0;
   const teamPct = teamTarget > 0 ? Math.round(((team?.vehicles ?? 0) / teamTarget) * 100) : 0;
   const ratings = data?.ratings ?? {};
+  const icons = Object.fromEntries(Object.entries(data?.badges ?? {}).map(([id, list]) => [id, badgeIcons(list)]));
+  const top = data?.feed?.[0];
+  const lastComment = top?.comments[top.comments.length - 1];
 
   return (
     <View style={[styles.root, { padding: 32 * s, gap: 14 * s }]}>
@@ -107,7 +113,7 @@ export default function Buero() {
         </View>
       )}
       {view === 'rennen' ? (
-        <Race lanes={raceLanes(rows)} scale={s} />
+        <Race lanes={raceLanes(rows)} scale={s} icons={icons} />
       ) : (
       <View style={{ flex: 1, gap: 8 * s }}>
         {rows.map((r) => {
@@ -115,8 +121,13 @@ export default function Buero() {
           return (
             <View key={r.seller_id} style={[styles.row, { paddingVertical: 10 * s, paddingHorizontal: 16 * s, gap: 20 * s }]}>
               <Text style={[styles.cell, { width: 56 * s, fontSize: 32 * s, color: podium[r.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{r.rank}</Text>
-              <Text style={[styles.cell, { flex: 1.1, fontSize: 30 * s }]} numberOfLines={1}>{r.full_name}</Text>
-              <View style={[styles.track, { flex: 1.8, height: 14 * s }]}>
+              <View style={{ flex: 1.7, flexDirection: 'row', alignItems: 'center', gap: 8 * s }}>
+                <Text style={[styles.cell, { flexShrink: 1, fontSize: 30 * s }]} numberOfLines={1}>
+                  {r.full_name}
+                </Text>
+                {icons[r.seller_id] ? <Text style={{ fontSize: 22 * s, flexShrink: 0 }} numberOfLines={1}>{icons[r.seller_id]}</Text> : null}
+              </View>
+              <View style={[styles.track, { flex: 1.3, height: 14 * s }]}>
                 <View style={[styles.fill, { width: `${(r.vehicles / max) * 100}%` }]} />
               </View>
               <Text style={[styles.cell, { width: 140 * s, fontSize: 30 * s, textAlign: 'right' }]}>
@@ -137,6 +148,12 @@ export default function Buero() {
         {data?.latest ? (
           <>
             Letzter Verkauf: <Text style={{ color: tv.accent }}>{data.latest.full_name}</Text> · {data.latest.vehicle}
+            {top && top.likes > 0 ? <Text style={{ color: tv.fg }}>{'  '}👍 {top.likes}</Text> : null}
+            {lastComment ? (
+              <Text style={{ color: tv.fg }}>
+                {'  '}„{lastComment.comment}“ <Text style={styles.muted}>({lastComment.name.split(' ')[0]})</Text>
+              </Text>
+            ) : null}
           </>
         ) : (
           'Noch keine Verkäufe'

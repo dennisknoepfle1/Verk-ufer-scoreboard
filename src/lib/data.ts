@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import type { BoardRow, Rates } from './scoring';
 import { supabase } from './supabase';
+import { groupBadges, type BadgeKey } from './badges';
 
 export type Sale = {
   id: number;
@@ -60,6 +61,31 @@ export async function fetchDisplayView(): Promise<DisplayView> {
   const { data, error } = await supabase.from('display_settings').select('view').maybeSingle();
   if (error) throw error;
   return (data?.view as DisplayView) ?? 'wechsel';
+}
+
+/** Abzeichen je Verkäufer im Monat. */
+export async function fetchBadges(month: string): Promise<Record<string, BadgeKey[]>> {
+  const { data, error } = await supabase.rpc('seller_badges', { p_month: month });
+  if (error) throw error;
+  return groupBadges(data ?? []);
+}
+
+export type FeedItem = {
+  sale_id: number;
+  seller_id: string;
+  full_name: string;
+  vehicle: string;
+  created_at: string;
+  likes: number;
+  liked: boolean;
+  comments: { name: string; comment: string; at: string }[];
+};
+
+/** Neueste Verkäufe aller Verkäufer mit Lob. */
+export async function fetchFeed(limit = 10): Promise<FeedItem[]> {
+  const { data, error } = await supabase.rpc('sales_feed', { p_limit: limit });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function fetchCurrentRates(): Promise<RatesRow | null> {
@@ -125,6 +151,7 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'monthly_goals' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'team_goals' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'display_settings' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'kudos' }, run)
       .subscribe();
     const timer = setInterval(run, 60_000);
     return () => {

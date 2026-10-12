@@ -3,7 +3,9 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { BrandBar, Button, colors, H2, Loading, Meter, Muted, Notice, rankColor, Screen } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
-import { fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
+import { KudosFeed } from '@/components/KudosFeed';
+import { BADGES, badgeIcons, type BadgeKey } from '@/lib/badges';
+import { fetchBadges, fetchFeed, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, firstName, monthLabel, monthStart } from '@/lib/format';
 import { gapToNextRank, goalProgress } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
@@ -12,9 +14,15 @@ export default function Scoreboard() {
   const { profile, signOut } = useAuth();
   const { saved } = useLocalSearchParams<{ saved?: string }>();
   const month = monthStart();
-  const { data, error } = useLive(async () => {
-    const [rows, team, ratings] = await Promise.all([fetchLeaderboard(month), fetchTeamProgress(month), fetchRatings(month)]);
-    return { rows, team, ratings };
+  const { data, error, reload } = useLive(async () => {
+    const [rows, team, ratings, badges, feed] = await Promise.all([
+      fetchLeaderboard(month),
+      fetchTeamProgress(month),
+      fetchRatings(month),
+      fetchBadges(month).catch((): Record<string, BadgeKey[]> => ({})),
+      fetchFeed(10).catch(() => []),
+    ]);
+    return { rows, team, ratings, badges, feed };
   }, [month]);
   const rows = data?.rows;
 
@@ -26,6 +34,8 @@ export default function Scoreboard() {
   const goal = me ? goalProgress(me.vehicles, me.target_vehicles) : null;
   const team = data ? goalProgress(data.team.vehicles, data.team.target_vehicles) : null;
   const ratings = data?.ratings ?? {};
+  const badges = data?.badges ?? {};
+  const myBadges = profile ? badges[profile.id] ?? [] : [];
 
   return (
     <Screen>
@@ -95,6 +105,20 @@ export default function Scoreboard() {
         </View>
       )}
 
+      {myBadges.length > 0 && (
+        <View style={styles.badges}>
+          <Text style={styles.goalLabel}>Deine Abzeichen · {monthLabel(month)}</Text>
+          <View style={styles.badgeRow}>
+            {myBadges.map((b) => (
+              <View key={b} style={styles.badge} accessibilityLabel={`${BADGES[b].label}: ${BADGES[b].hint}`}>
+                <Text style={styles.badgeIcon}>{BADGES[b].icon}</Text>
+                <Text style={styles.badgeLabel}>{BADGES[b].label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       <Button title="Verkauf eintragen" onPress={() => router.push('/neu')} />
 
       <H2>Rangliste {monthLabel(month)}</H2>
@@ -102,7 +126,10 @@ export default function Scoreboard() {
         {rows.map((r) => (
           <View key={r.seller_id} style={[styles.listRow, r.seller_id === profile?.id && styles.mine]}>
             <Text style={[styles.pos, { color: rankColor(r.rank) }]}>{r.rank}</Text>
-            <Text style={styles.name} numberOfLines={1}>{r.full_name}</Text>
+            <Text style={styles.name} numberOfLines={1}>
+              {r.full_name}
+              {badges[r.seller_id] ? <Text style={styles.icons}> {badgeIcons(badges[r.seller_id])}</Text> : null}
+            </Text>
             {ratings[r.seller_id] && <Text style={styles.stars}>{stars(ratings[r.seller_id].avg)}</Text>}
             <Text style={styles.count}>{r.vehicles}</Text>
             <Text style={styles.eur}>{eur(r.commission)}</Text>
@@ -110,6 +137,10 @@ export default function Scoreboard() {
         ))}
         {rows.length === 0 && <Muted>Noch keine freigegebenen Verkäufer.</Muted>}
       </View>
+      <H2>Neueste Verkäufe</H2>
+      <Muted>Lob deine Kollegen mit einem Daumen oder einem kurzen Kommentar.</Muted>
+      <KudosFeed items={data?.feed ?? []} onChange={reload} />
+
       <Link href="/buero" style={styles.link}>Büro-Anzeige öffnen</Link>
     </Screen>
   );
@@ -134,6 +165,12 @@ const styles = StyleSheet.create({
   pos: { width: 28, textAlign: 'center', fontWeight: '800', fontSize: 18 },
   name: { flex: 1, fontWeight: '600', color: colors.fg },
   count: { fontWeight: '700', fontSize: 18, color: colors.fg, minWidth: 24, textAlign: 'right' },
+  badges: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 8, backgroundColor: colors.surface },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.accentSoft, borderRadius: 16, paddingVertical: 5, paddingHorizontal: 10 },
+  badgeIcon: { fontSize: 16 },
+  badgeLabel: { fontWeight: '700', color: colors.fg, fontSize: 13 },
+  icons: { fontWeight: '400' },
   stars: { color: '#b07a00', fontWeight: '600', fontVariant: ['tabular-nums'] },
   eur: { color: colors.muted, minWidth: 80, textAlign: 'right', fontVariant: ['tabular-nums'] },
 });

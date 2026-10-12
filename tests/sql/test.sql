@@ -129,4 +129,33 @@ do $$ begin
   assert exists (select 1 from quotes where text = 'Testspruch vom Admin'), 'Verkäufer hat Spruch gelöscht';
 end $$;
 
+-- Abzeichen: Jonas (…001) hat Golf (Bewertung 5) und Polo (4) und Selbstbewertung heute -> Hattrick, Durchstarter
+do $$ begin
+  assert exists (select 1 from seller_badges() where seller_id = '00000000-0000-0000-0000-000000000001' and badge = 'hattrick'), 'Hattrick fehlt';
+  assert exists (select 1 from seller_badges() where seller_id = '00000000-0000-0000-0000-000000000001' and badge = 'durchstarter'), 'Durchstarter fehlt';
+  assert exists (select 1 from seller_badges() where seller_id = '00000000-0000-0000-0000-000000000001' and badge = 'winterkoenig'), 'Winterkönig fehlt';
+  assert not exists (select 1 from seller_badges() where badge = 'serie'), 'Serie ohne Ziele';
+end $$;
+
+-- Lob: Laura (…002) lobt Jonas' Golf mit Kommentar, ihren eigenen Verkauf kann sie nicht loben
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false) is not null as login \gset
+-- Verkäufer sehen fremde Verkäufe nur über den Feed
+insert into kudos (sale_id, comment) select sale_id, 'Stark gemacht!' from sales_feed() where vehicle = 'Golf';
+do $$ begin
+  assert (select likes from sales_feed() where vehicle = 'Golf') = 1, 'Lob zählt nicht';
+  assert (select liked from sales_feed() where vehicle = 'Golf'), 'liked fehlt';
+  assert (select comments->0->>'comment' from sales_feed() where vehicle = 'Golf') = 'Stark gemacht!', 'Kommentar fehlt';
+  begin
+    insert into kudos (sale_id, user_id) select sale_id, '00000000-0000-0000-0000-000000000001' from sales_feed() where vehicle = 'Golf';
+    assert false, 'Lob im Namen eines anderen';
+  exception when insufficient_privilege then null; end;
+end $$;
+insert into sales (vehicle) values ('Lauras Auto');
+do $$ begin
+  begin
+    insert into kudos (sale_id) select id from sales where vehicle = 'Lauras Auto';
+    assert false, 'Eigenes Lob hätte scheitern müssen';
+  exception when insufficient_privilege then null; end;
+end $$;
+
 select 'ALLE SQL-TESTS OK' as result;

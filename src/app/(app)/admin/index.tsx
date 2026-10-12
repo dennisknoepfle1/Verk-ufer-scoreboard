@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import { KudosFeed } from '@/components/KudosFeed';
 import { MonthPicker } from '@/components/MonthPicker';
 import { StarInput } from '@/components/Stars';
-import { Button, Card, colors, H1, Muted, Notice, Screen } from '@/components/ui';
-import { fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
+import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
+import { fetchFeed, fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
 import { dateLabel, eur, monthStart, shiftMonth } from '@/lib/format';
 import { stars, summarize } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
@@ -15,8 +16,8 @@ export default function AdminSales() {
   const [rating, setRating] = useState<Record<number, number | null>>({});
   const { data, error, reload } = useLive(
     async () => {
-      const [sales, board] = await Promise.all([fetchSales(month, shiftMonth(month, 1)), fetchLeaderboard(month)]);
-      return { sales, board };
+      const [sales, board, feed] = await Promise.all([fetchSales(month, shiftMonth(month, 1)), fetchLeaderboard(month), fetchFeed(5).catch(() => [])]);
+      return { sales, board, feed };
     },
     [month],
   );
@@ -65,6 +66,10 @@ export default function AdminSales() {
           </Card>
         ))}
       </View>
+      <Card>
+        <H2>Neueste Verkäufe feiern</H2>
+        <KudosFeed items={data?.feed ?? []} onChange={reload} />
+      </Card>
       <Card>
         <ScrollView horizontal>
           <View>

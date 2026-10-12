@@ -8,7 +8,7 @@ const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
 const useNative = false; // 'left' in Prozent lässt sich nur ohne nativen Treiber animieren
 
 /** Autorennen für die Büro-Anzeige: ein Auto je Verkäufer, Ziellinie = persönliches Monatsziel. */
-export function Race({ lanes, scale: s }: { lanes: RaceLane[]; scale: number }) {
+export function Race({ lanes, scale: s, icons = {} }: { lanes: RaceLane[]; scale: number; icons?: Record<string, string> }) {
   const [avail, setAvail] = useState(460 * s);
   const gap = 6 * s;
   const n = Math.max(1, lanes.length);
@@ -17,14 +17,14 @@ export function Race({ lanes, scale: s }: { lanes: RaceLane[]; scale: number }) 
   return (
     <View style={{ flex: 1, justifyContent: 'center', gap }} onLayout={(e) => setAvail(e.nativeEvent.layout.height)}>
       {lanes.map((l, i) => (
-        <Lane key={l.seller_id} lane={l} s={s} height={laneH} delay={i * 120} />
+        <Lane key={l.seller_id} lane={l} s={s} height={laneH} delay={i * 120} icons={icons[l.seller_id]} />
       ))}
       {lanes.length === 0 && <Text style={[styles.empty, { fontSize: 24 * s }]}>Noch keine Fahrer am Start.</Text>}
     </View>
   );
 }
 
-function Lane({ lane, s, height, delay }: { lane: RaceLane; s: number; height: number; delay: number }) {
+function Lane({ lane, s, height, delay, icons }: { lane: RaceLane; s: number; height: number; delay: number; icons?: string }) {
   const pos = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     Animated.timing(pos, { toValue: lane.progress, duration: 1600, delay, useNativeDriver: useNative }).start();
@@ -36,9 +36,12 @@ function Lane({ lane, s, height, delay }: { lane: RaceLane; s: number; height: n
 
   return (
     <View style={[styles.lane, { height, gap: 14 * s }]}>
-      <Text style={[styles.name, { width: 200 * s, fontSize: 24 * s }]} numberOfLines={1}>
-        {lane.full_name}
-      </Text>
+      <View style={{ width: 200 * s }}>
+        <Text style={[styles.name, { fontSize: 24 * s }]} numberOfLines={1}>
+          {lane.full_name}
+        </Text>
+        {icons ? <Text style={{ fontSize: Math.min(18 * s, height * 0.3) }} numberOfLines={1}>{icons}</Text> : null}
+      </View>
       <View style={[styles.road, { height, paddingLeft: carW }]}>
         <View style={styles.dash} />
         <View style={{ flex: 1 }}>
