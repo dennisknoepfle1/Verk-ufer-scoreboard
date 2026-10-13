@@ -7,9 +7,10 @@ import { Logo, ui } from '@/components/ui';
 import { useAutoUpdate } from '@/lib/auto-update';
 import { useAuth } from '@/lib/auth';
 import { layoutCars } from '@/lib/autohaus-layout';
-import { fetchBuyers, fetchDeliveries, fetchLeadTimes, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchBuyers, fetchDeliveries, fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
 import { pipelineSummary, stationCounts, STATIONS } from '@/lib/deliveries';
-import { eur, monthLabel, monthStart } from '@/lib/format';
+import { eur, monthLabel, monthStart, shiftMonth } from '@/lib/format';
+import { pct, summarize, type StatSale } from '@/lib/stats';
 
 // Dunkler Prusseit-Look wie die Büro-Anzeige.
 const tv = { bg: '#121214', panel: 'rgba(30,30,32,0.92)', row: '#29292b', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c', warn: '#ff8a65' };
@@ -42,6 +43,13 @@ export default function Dashboard() {
   const { data: team } = useLive(() => fetchTeamProgress(month).catch(() => null), [month]);
   const { data: buyers } = useLive(fetchBuyers, []);
   const { data: lead } = useLive(() => fetchLeadTimes().catch(() => null), []);
+  const { data: extras } = useLive(async () => {
+    const prevMonth = shiftMonth(month, -1);
+    const sales = await fetchSales(prevMonth, shiftMonth(month, 1)).catch(() => null);
+    if (!sales) return null;
+    const stat = sales.map<StatSale>((x) => ({ ...x, seller_name: '' }));
+    return { now: summarize(stat.filter((x) => x.sold_on >= month)), prev: summarize(stat.filter((x) => x.sold_on < month)) };
+  }, [month]);
 
   const rows = deliv?.status?.last_success_at ? deliv.rows : null;
   const days = useMemo(() => new Map((lead?.open ?? []).map((o) => [o.task_gid, Number(o.days)])), [lead]);
@@ -171,29 +179,40 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* rechts: Langsteher */}
-        <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(6) }]} {...ui('tv-row')}>
+        {/* rechts: Zusatzgeschäft im Monat (gleiche Rechnung wie Admin > Statistik) */}
+        <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(10) }]} {...ui('tv-row')}>
           <View style={styles.between}>
-            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>LANGSTEHER</Text>
-            <Text style={[styles.muted, { fontSize: f(12) }]}>{open.length} stehen</Text>
+            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>ZUSATZGESCHÄFT</Text>
+            <Text style={[styles.muted, { fontSize: f(12) }]}>{extras ? `${extras.now.vehicles} Verkäufe` : ''}</Text>
           </View>
-          <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: f(5) }}>
-            {open.slice(0, 14).map((o) => (
-              <View key={o.task_gid} style={[styles.listRow, { paddingVertical: f(5), paddingHorizontal: f(8), gap: f(8), borderRadius: f(6) }]}>
-                <Text style={[styles.strong, { width: f(52), fontSize: f(15), color: Number(o.days) >= 60 ? tv.warn : tv.fg }]} numberOfLines={1}>
-                  {tage(o.days)} T.
-                </Text>
-                <View style={{ flex: 1, minWidth: 0 }}>
-                  <Text style={[styles.fg, { fontSize: f(13) }]} numberOfLines={1}>
-                    {o.name.split('/')[0].trim()}
-                  </Text>
-                  <Text style={[styles.muted, { fontSize: f(11) }]} numberOfLines={1}>
-                    {o.section.replace(/^FZG\.-\s?/, '')}
-                  </Text>
+          {(
+            [
+              ['Winterräder', 'winterRate'],
+              ['Zulassung', 'registrationRate'],
+              ['Finanzierung', 'financedRate'],
+            ] as const
+          ).map(([label, key]) => {
+            const r = extras?.now[key] ?? null;
+            const prev = extras?.prev[key] ?? null;
+            const n = r == null || !extras ? null : Math.round(r * extras.now.vehicles);
+            return (
+              <View key={key} style={[styles.listRow, { flexDirection: 'column', alignItems: 'stretch', paddingVertical: f(8), paddingHorizontal: f(10), gap: f(4), borderRadius: f(8) }]}>
+                <View style={styles.between}>
+                  <Text style={[styles.fg, { fontSize: f(15) }]}>{label}</Text>
+                  <Text style={[styles.big, { fontSize: f(28), lineHeight: f(32), color: tv.fg }]}>{pct(r)}</Text>
                 </View>
+                <View style={[styles.track, { height: f(8) }]}>
+                  <View style={[styles.fill, { width: `${(r ?? 0) * 100}%` }]} {...ui('tv-fill')} />
+                </View>
+                <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>
+                  {n == null ? 'Noch keine Verkäufe' : `${n} von ${extras!.now.vehicles}`} · Vormonat {pct(prev)}
+                </Text>
               </View>
-            ))}
-          </View>
+            );
+          })}
+          <Text style={[styles.muted, { fontSize: f(12), marginTop: 'auto' }]} numberOfLines={1}>
+            Ø Bankprovision je Verkauf: {extras?.now.avgBankCommission == null ? '–' : eur(extras.now.avgBankCommission)}
+          </Text>
         </View>
       </View>
 
