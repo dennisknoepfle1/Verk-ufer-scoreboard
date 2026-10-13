@@ -14,7 +14,21 @@ export type Delivery = {
   completed?: boolean;
   created_at?: string | null;
   created_by?: string | null;
+  amount?: number | null; // Asana-Feld „Verkaufspreis“ in Euro
+  deal_type?: string | null; // Asana-Feld „Art des Geschäftes“
 };
+
+/** Nur eigene Fahrzeuge (direkter Ankauf) bringen Cashflow, Vermittlungen nicht. */
+export function isDirect(d: Delivery) {
+  return (d.deal_type ?? '').trim().toLowerCase().startsWith('direkt');
+}
+
+/** Was in Asana fehlt, damit der Euro-Betrag stimmt (null = alles da). */
+export function missingInfo(d: Delivery): string | null {
+  if (!d.deal_type) return 'Art des Geschäftes fehlt';
+  if (isDirect(d) && d.amount == null) return 'Verkaufspreis fehlt';
+  return null;
+}
 
 /** Reihenfolge: zuerst die Spalte, aus der das Geld als Nächstes kommt. */
 export const PIPELINE: { stage: Exclude<Stage, 'sonstige'>; label: string; short: string }[] = [
@@ -25,9 +39,15 @@ export const PIPELINE: { stage: Exclude<Stage, 'sonstige'>; label: string; short
 
 export type PipelineSummary = {
   vehicles: Delivery[];
-  counts: { stage: Exclude<Stage, 'sonstige'>; label: string; short: string; count: number }[];
+  counts: { stage: Exclude<Stage, 'sonstige'>; label: string; short: string; count: number; euro: number }[];
   total: number;
+  /** Summe Verkaufspreis aller Fahrzeuge im direkten Ankauf. */
+  euro: number;
+  /** Fahrzeuge, bei denen Ankaufsart oder Betrag in Asana fehlt. */
+  missing: number;
 };
+
+const euroOf = (list: Delivery[]) => list.reduce((a, v) => a + (isDirect(v) && v.amount != null ? Number(v.amount) : 0), 0);
 
 /** Erledigte Aufgaben (in Asana abgehakt) sind durch, für den Cashflow zählen nur offene. */
 export function inPipeline(d: Delivery) {
@@ -38,8 +58,11 @@ export function pipelineSummary(rows: Delivery[]): PipelineSummary {
   const vehicles = rows.filter(inPipeline);
   const rank = (s: Stage) => PIPELINE.findIndex((p) => p.stage === s);
   vehicles.sort((a, b) => rank(a.stage) - rank(b.stage) || (a.due_on ?? '9999').localeCompare(b.due_on ?? '9999') || a.name.localeCompare(b.name));
-  const counts = PIPELINE.map((p) => ({ ...p, count: vehicles.filter((v) => v.stage === p.stage).length }));
-  return { vehicles, counts, total: vehicles.length };
+  const counts = PIPELINE.map((p) => {
+    const inStage = vehicles.filter((v) => v.stage === p.stage);
+    return { ...p, count: inStage.length, euro: euroOf(inStage) };
+  });
+  return { vehicles, counts, total: vehicles.length, euro: euroOf(vehicles), missing: vehicles.filter((v) => missingInfo(v)).length };
 }
 
 /** „14.10.“ */

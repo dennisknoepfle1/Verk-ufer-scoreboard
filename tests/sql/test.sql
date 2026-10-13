@@ -225,11 +225,13 @@ select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a
 update asana_settings set project_ref = 'https://app.asana.com/0/123/list';
 reset role;
 set role service_role;
-select public.asana_replace('[{"task_gid":"1","name":"VW Golf","section":"Auszahlung/ Prüfung","stage":"ausgeliefert","due_on":"2026-10-14"}]'::jsonb) = 1 as replaced \gset
+select public.asana_replace('[{"task_gid":"1","name":"VW Golf","section":"Auszahlung/ Prüfung","stage":"ausgeliefert","due_on":"2026-10-14","amount":18990.5,"deal_type":"Direkter Ankauf"}]'::jsonb) = 1 as replaced \gset
 reset role;
 do $$ begin
   assert (select count(*) from asana_current()) = 1, 'Alte Aufgaben dürfen nach neuem Abruf nicht mehr zählen';
   assert (select stage from asana_current()) = 'ausgeliefert', 'Stand nicht aktualisiert';
+  assert (select amount from asana_current()) = 18990.50, 'Betrag gespeichert';
+  assert (select deal_type from asana_current()) = 'Direkter Ankauf', 'Ankaufsart gespeichert';
 end $$;
 do $$ begin
   assert (select project_ref from asana_settings) like '%123%', 'Admin konnte Projekt nicht setzen';

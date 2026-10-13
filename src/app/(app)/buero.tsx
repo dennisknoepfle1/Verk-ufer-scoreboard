@@ -151,8 +151,8 @@ export default function Buero() {
           ))}
           <Text style={[styles.delivItem, { fontSize: 22 * s, color: tv.gold }]}>
             Gesamt <Text style={[styles.delivNum, { color: tv.gold }]}>{pipeline.total}</Text>
+            {pipeline.euro > 0 ? <Text style={[styles.delivNum, { color: tv.gold }]}> · {eur(pipeline.euro)}</Text> : null}
           </Text>
-          <Text style={[styles.muted, { fontSize: 16 * s, marginLeft: 'auto' }]}>Stand {deliveryStand}</Text>
         </View>
       )}
       {view === 'einkauf' ? (

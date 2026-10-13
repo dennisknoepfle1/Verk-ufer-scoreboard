@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
       const url = new URL(`https://app.asana.com/api/1.0/projects/${gid}/tasks`);
       url.searchParams.set('completed_since', monthStart); // offene + in diesem Monat erledigte (Einkäufer-Challenge)
       url.searchParams.set('limit', '100');
-      url.searchParams.set('opt_fields', 'name,due_on,due_at,permalink_url,memberships.project.gid,memberships.section.name,custom_fields.name,custom_fields.type,custom_fields.date_value,created_at,created_by.name,completed');
+      url.searchParams.set('opt_fields', 'name,due_on,due_at,permalink_url,memberships.project.gid,memberships.section.name,custom_fields.name,custom_fields.type,custom_fields.date_value,custom_fields.number_value,custom_fields.enum_value.name,created_at,created_by.name,completed');
       if (offset) url.searchParams.set('offset', offset);
       const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(20_000) });
       if (res.status === 401) return fail('Asana-Schlüssel ungültig oder abgelaufen');

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { pipelineSummary, type Delivery } from '../src/lib/deliveries.ts';
-import { monthStartIso, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
+import { missingInfo, pipelineSummary, type Delivery } from '../src/lib/deliveries.ts';
+import { amountOf, dealTypeOf, monthStartIso, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
   task_gid: Math.random().toString(), name: 'Auto', section: '', stage, due_on, permalink_url: null,
@@ -57,4 +57,30 @@ test('Cashflow: alle drei Spalten zählen, Auszahlung/Prüfung zuerst, Sonstige 
   assert.equal(s.total, 6);
   assert.deepEqual(s.vehicles.map((v) => v.stage), ['ausgeliefert', 'ausgeliefert', 'ausgeliefert', 'auslieferung', 'fertig', 'fertig']);
   assert.equal(s.vehicles[0].due_on, '2026-09-20');
+});
+
+test('Euro: nur direkter Ankauf zählt, fehlende Angaben werden markiert', () => {
+  const t = {
+    gid: '1',
+    custom_fields: [
+      { name: 'Verkaufspreis ', type: 'number', number_value: 21990 },
+      { name: 'Art des Geschäftes', type: 'enum', enum_value: { name: 'Direkter Ankauf' } },
+    ],
+  };
+  assert.equal(amountOf(t), 21990);
+  assert.equal(dealTypeOf(t), 'Direkter Ankauf');
+  assert.equal(amountOf({ gid: '2' }), null);
+  const direct = { ...d(null, 'fertig'), amount: 20000, deal_type: 'Direkter Ankauf' };
+  const s = pipelineSummary([
+    direct,
+    { ...d(null, 'ausgeliefert'), amount: 15000.5, deal_type: 'Direkter Ankauf' },
+    { ...d(null, 'ausgeliefert'), amount: 30000, deal_type: 'Vermittlung' },
+    { ...d(null, 'ausgeliefert'), amount: null, deal_type: 'Direkter Ankauf' },
+    { ...d(null, 'auslieferung'), amount: 9000, deal_type: null },
+  ]);
+  assert.equal(s.euro, 35000.5);
+  assert.deepEqual(s.counts.map((c) => c.euro), [15000.5, 0, 20000]);
+  assert.equal(s.missing, 2);
+  assert.equal(missingInfo(direct), null);
+  assert.equal(missingInfo({ ...direct, amount: null }), 'Verkaufspreis fehlt');
 });
