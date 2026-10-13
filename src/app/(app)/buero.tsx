@@ -19,21 +19,14 @@ const podium = ['#f2c94c', '#c9d3dd', '#e39a6c'];
 const ROTATE_MS = 30_000;
 type Ansicht = 'liste' | 'rennen' | 'einkauf';
 
-/** Zeilen so weit verkleinern, dass alle in den freien Platz passen (nie größer als normal). */
-function fitFactor(available: number, rows: number, s: number) {
-  if (!available || rows === 0) return 1;
-  const gap = 8 * s;
-  const natural = rows * ROW_HEIGHT * s + (rows - 1) * gap;
-  return Math.max(0.45, Math.min(1, (available - (rows - 1) * gap * 0.5) / natural));
-}
-const ROW_HEIGHT = 62; // Zeilenhöhe bei Maßstab 1 (Abstand oben/unten + Schrift)
 
 /** Vollbild-Rangliste für den Bildschirm im Büro. Aktualisiert sich selbst. */
 export default function Buero() {
   const [month, setMonth] = useState(monthStart());
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   useAutoUpdate(); // neue Versionen kommen ohne Neuladen von Hand auf den Bildschirm
-  const s = Math.max(0.6, Math.min(2, width / 1280)); // skaliert mit der Bildschirmbreite
+  // Skaliert mit dem Bildschirm (Bezug 1280×720); bei flachen Fenstern zählt die Höhe.
+  const s = Math.max(0.6, Math.min(2, width / 1280, height / 640));
 
   // Beim Monatswechsel automatisch auf den neuen Monat umschalten.
   useEffect(() => {
@@ -109,9 +102,21 @@ export default function Buero() {
   const ratings = data?.ratings ?? {};
   const icons = Object.fromEntries(Object.entries(data?.badges ?? {}).map(([id, list]) => [id, badgeIcons(list)]));
   const top = data?.feed?.[0];
+  // Ranglisten-Zeilen messen und so weit verkleinern, dass alle über die Fußzeile passen (nie größer als normal).
   const [listH, setListH] = useState(0);
+  const [natural, setNatural] = useState(0); // Höhe aller Zeilen bei voller Größe
+  const [fit, setFit] = useState(1);
+  const fitRef = useRef(1);
+  fitRef.current = fit;
   const onList = (e: LayoutChangeEvent) => setListH(e.nativeEvent.layout.height);
-  const k = s * fitFactor(listH, view === 'einkauf' ? (buyers?.length ?? 0) : rows.length, s);
+  // Zeilenhöhe wächst mit dem Maßstab, also lässt sich aus der gemessenen Höhe die volle Höhe zurückrechnen.
+  const onContent = (e: LayoutChangeEvent) => setNatural(e.nativeEvent.layout.height / fitRef.current);
+  useEffect(() => {
+    if (!listH || !natural) return;
+    const target = Math.max(0.35, Math.min(1, (listH / natural) * 0.97));
+    if (Math.abs(target - fit) > 0.02) setFit(target);
+  }, [listH, natural, fit]);
+  const k = s * fit;
   const lastComment = top?.comments[top.comments.length - 1];
 
   return (
@@ -156,7 +161,8 @@ export default function Buero() {
         </View>
       )}
       {view === 'einkauf' ? (
-        <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: 8 * k }} onLayout={onList}>
+        <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', }} onLayout={onList}>
+        <View style={{ gap: 8 * k }} onLayout={onContent}>
           {(buyers ?? []).map((b) => (
             <View key={b.buyer} style={[styles.row, { paddingVertical: 10 * k, paddingHorizontal: 16 * k, gap: 20 * k }]} {...ui(b.rank === 1 ? 'tv-lead' : 'tv-row')}>
               <Text style={[styles.cell, { width: 56 * k, fontSize: 32 * k, color: podium[b.rank - 1] ?? tv.fg, textAlign: 'center' }]}>{b.rank}</Text>
@@ -170,10 +176,12 @@ export default function Buero() {
             </View>
           ))}
         </View>
+        </View>
       ) : view === 'rennen' ? (
         <Race lanes={raceLanes(rows)} scale={s} icons={icons} />
       ) : (
-      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: 8 * k }} onLayout={onList}>
+      <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', }} onLayout={onList}>
+        <View style={{ gap: 8 * k }} onLayout={onContent}>
         {rows.map((r) => {
           const reached = r.target_vehicles != null && r.target_vehicles > 0 && r.vehicles >= r.target_vehicles;
           return (
@@ -200,6 +208,7 @@ export default function Buero() {
             </View>
           );
         })}
+        </View>
       </View>
       )}
       <Text style={[styles.muted, styles.foot, { fontSize: 20 * s, paddingTop: 10 * s }]} numberOfLines={1}>
