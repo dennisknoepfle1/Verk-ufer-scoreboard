@@ -12,6 +12,7 @@ const NAV = [
   { href: '/admin/provision', label: 'Provision' },
   { href: '/admin/auslieferungen', label: 'Cashflow' },
   { href: '/admin/einkauf', label: 'Einkäufer' },
+  { href: '/admin/standzeit', label: 'Standzeit' },
   { href: '/admin/anzeige', label: 'Büro-Anzeige' },
 ] as const;
 

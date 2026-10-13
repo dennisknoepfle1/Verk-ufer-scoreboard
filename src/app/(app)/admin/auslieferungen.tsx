@@ -109,7 +109,7 @@ export default function Auslieferungen() {
         </View>
         <Text style={{ color: colors.fg }}>
           Letzter Abruf: {timeLabel(status?.last_attempt_at)}
-          {status?.last_success_at ? ` · zuletzt erfolgreich: ${timeLabel(status.last_success_at)} (${status.task_count} offene Aufgaben)` : ''}
+          {status?.last_success_at ? ` · zuletzt erfolgreich: ${timeLabel(status.last_success_at)} (${status.task_count} Aufgaben)` : ''}
         </Text>
         {status?.last_error ? <Notice tone="danger">Problem beim letzten Abruf: {status.last_error}</Notice> : null}
         <Muted>Der Abruf läuft automatisch alle 15 Minuten und liest nur, er ändert nichts in Asana.</Muted>

@@ -283,4 +283,28 @@ do $$ begin
 end $$;
 delete from asana_buyers where name = 'Anna';
 reset role;
+-- Standzeit: Eingang (Administration) bis ausgeliefert
+insert into public.asana_lead_times (task_gid, eingang_at, ausgeliefert_at, section_seen) values
+  ('b1', now() - interval '5 days', null, 'FZG.-Beschaffung'),
+  ('b2', '2026-09-01T10:00:00+02', '2026-09-11T10:00:00+02', 'FZG.-Verkauf (Bestand)'),
+  ('b3', '2026-09-01T10:00:00+02', '2026-09-21T10:00:00+02', 'FZG.-Beschaffung'),
+  ('b4', '2026-09-01T10:00:00+02', '2026-09-02T10:00:00+02', 'Stornos'),
+  ('b6', null, null, 'FZG.-Beschaffung');
+set role authenticated;
+do $$ begin
+  assert (select count(*) from lead_time_months()) = 1, 'nur ein Monat';
+  assert (select vehicles from lead_time_months()) = 2, 'Storno zählt nicht';
+  assert (select avg_days from lead_time_months()) = 15.0, 'Ø 15 Tage';
+  assert (select month from lead_time_months()) = '2026-09-01', 'Monat der Auslieferung';
+  assert (select count(*) from lead_time_open()) = 1, 'ein Fahrzeug steht';
+  assert (select days from lead_time_open()) between 4.9 and 5.1, 'laufende Tage';
+  assert (select tasks from lead_time_status()) = 5 and (select checked from lead_time_status()) = 4, 'Fortschritt';
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert (select count(*) from lead_time_months()) = 0, 'Verkäufer sieht keine Standzeiten';
+end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { missingInfo, pipelineSummary, type Delivery } from '../src/lib/deliveries.ts';
-import { amountOf, dealTypeOf, monthStartIso, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
+import { amountOf, dealTypeOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
   task_gid: Math.random().toString(), name: 'Auto', section: '', stage, due_on, permalink_url: null,
@@ -84,4 +84,25 @@ test('Euro: nur direkter Ankauf zählt, fehlende Angaben werden markiert', () =>
   assert.equal(s.missing, 2);
   assert.equal(missingInfo(direct), null);
   assert.equal(missingInfo({ ...direct, amount: null }), 'Verkaufspreis fehlt');
+});
+
+test('Standzeit: erster Eingang in Administration bis erste Auslieferung danach', () => {
+  const mv = (at: string, name: string) => ({ created_at: at, resource_subtype: 'section_changed', new_section: { name } });
+  const st = [
+    { created_at: '2026-09-23T08:19:00Z', resource_subtype: 'added_to_project' },
+    mv('2026-09-23T08:22:00Z', 'Logistik'),
+    mv('2026-09-23T08:23:00Z', 'FZG.-Administration'),
+    mv('2026-09-25T07:07:00Z', 'FZG.-Anlage'),
+    mv('2026-09-25T07:08:00Z', 'FZG.-Administration'),
+    mv('2026-10-07T10:13:00Z', 'Auszahlung/ Prüfung'),
+    mv('2026-10-08T10:13:00Z', 'Buchhaltung'),
+  ];
+  assert.deepEqual(leadTimeOf(st), { eingang_at: '2026-09-23T08:23:00Z', ausgeliefert_at: '2026-10-07T10:13:00Z' });
+  assert.deepEqual(leadTimeOf([mv('2026-09-21T09:49:00Z', 'FZG.-Disposition/ Werkstatt'), mv('2026-10-07T07:34:00Z', 'Auszahlung/ Prüfung')]), { eingang_at: null, ausgeliefert_at: null });
+  assert.equal(leadTimeOf([mv('2026-09-21T09:51:00Z', 'FZG.-Administration'), mv('2026-10-09T14:43:00Z', 'Buchhaltung')]).ausgeliefert_at, '2026-10-09T14:43:00Z');
+  assert.equal(leadTimeOf([mv('2026-09-21T09:51:00Z', 'FZG.-Administration')]).ausgeliefert_at, null);
+  assert.equal(needsLeadTime({ section: 'A' }, undefined), true);
+  assert.equal(needsLeadTime({ section: 'A' }, { section_seen: 'A', ausgeliefert_at: null }), false);
+  assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: null }), true);
+  assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: '2026-10-01T00:00:00Z' }), false);
 });

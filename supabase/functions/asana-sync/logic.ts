@@ -80,7 +80,38 @@ export function toRow(t: AsanaTask, gid: string) {
   };
 }
 
+/** Erledigte Aufgaben der letzten 13 Monate mitholen (Standzeit je Monat, Einkäufer). */
+export function historyStartIso(now: Date): string {
+  return new Date(now.getTime() - 400 * 86_400_000).toISOString().slice(0, 10) + 'T00:00:00.000Z';
+}
+
 /** Monatsanfang (deutsche Zeit, großzügig: 2 Tage früher, damit nichts am Rand fehlt) für completed_since. */
 export function monthStartIso(now: Date): string {
   return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) - 2 * 86_400_000).toISOString();
+}
+
+// ---- Standzeit: vom Eingang (Spalte „FZG.-Administration“) bis ausgeliefert ----
+
+type Story = { created_at?: string; resource_subtype?: string; new_section?: { name?: string } | null };
+
+const isEingang = (section: string) => section.toLowerCase().includes('administration');
+/** Ausgeliefert = in „Auszahlung/ Prüfung“ (oder, falls übersprungen, „Buchhaltung“ / „Abgeschlossen“). */
+export const isAusgeliefert = (section: string) => /auszahlung|prüfung|pruefung|buchhaltung|abgeschlossen/i.test(section);
+
+/** Erster Eingang und erste Auslieferung danach aus dem Verlauf einer Aufgabe (Spaltenwechsel). */
+export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null } {
+  const moves = stories
+    .filter((s) => s.resource_subtype === 'section_changed' && s.created_at && s.new_section?.name)
+    .sort((a, b) => a.created_at!.localeCompare(b.created_at!));
+  const eingang = moves.find((s) => isEingang(s.new_section!.name!));
+  if (!eingang) return { eingang_at: null, ausgeliefert_at: null };
+  const raus = moves.find((s) => s.created_at! > eingang.created_at! && isAusgeliefert(s.new_section!.name!));
+  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null };
+}
+
+/** Verlauf neu lesen? Nur wenn noch nie gelesen oder die Spalte sich seitdem geändert hat (und noch nicht ausgeliefert). */
+export function needsLeadTime(row: { section: string }, known: { section_seen: string; ausgeliefert_at: string | null } | undefined) {
+  if (!known) return true;
+  if (known.ausgeliefert_at) return false;
+  return known.section_seen !== row.section;
 }

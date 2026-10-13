@@ -259,3 +259,22 @@ export async function removeBuyer(name: string) {
   const { error } = await supabase.from('asana_buyers').delete().eq('name', name);
   if (error) throw new Error(error.message);
 }
+
+export type LeadMonth = { month: string; vehicles: number; avg_days: number; median_days: number; max_days: number };
+export type LeadOpen = { task_gid: string; name: string; section: string; eingang_at: string; days: number; permalink_url: string | null };
+
+/** Standzeit (Admin): Ø je Monat, Fahrzeuge die gerade stehen, und wie weit der Asana-Verlauf ausgewertet ist. */
+export async function fetchLeadTimes() {
+  const [months, open, status] = await Promise.all([
+    supabase.rpc('lead_time_months'),
+    supabase.rpc('lead_time_open'),
+    supabase.rpc('lead_time_status').maybeSingle(),
+  ]);
+  const err = months.error ?? open.error ?? status.error;
+  if (err) throw new Error(err.message);
+  return {
+    months: (months.data ?? []) as LeadMonth[],
+    open: (open.data ?? []) as LeadOpen[],
+    status: (status.data as { tasks: number; checked: number } | null) ?? { tasks: 0, checked: 0 },
+  };
+}
