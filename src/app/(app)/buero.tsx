@@ -6,7 +6,6 @@ import { Celebration, type CelebrationInfo } from '@/components/Celebration';
 import { Race } from '@/components/Race';
 import { Logo, ui } from '@/components/ui';
 import { badgeIcons, type BadgeKey } from '@/lib/badges';
-import { pipelineSummary } from '@/lib/deliveries';
 import { fetchBadges, fetchBuyers, fetchDeliveries, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 import { raceLanes } from '@/lib/scoring';
@@ -47,9 +46,8 @@ export default function Buero() {
     return { rows, latest, team, ratings, setting, badges, feed };
   }, [month]);
 
-  // Cashflow aus Asana getrennt laden: Fehlt Asana oder hakt es, läuft die Anzeige ganz normal weiter.
+  // Asana-Stand für die Einkäufer-Ansicht getrennt laden: Hakt Asana, läuft die Anzeige ganz normal weiter.
   const { data: deliv } = useLive(fetchDeliveries, []);
-  const pipeline = deliv?.status?.last_success_at ? pipelineSummary(deliv.rows) : null;
   const deliveryStand = deliv?.status?.last_success_at
     ? new Date(deliv.status.last_success_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
     : '';
@@ -146,20 +144,6 @@ export default function Buero() {
           </Text>
         </View>
       )}
-      {view !== 'einkauf' && pipeline && (
-        <View style={[styles.deliv, { paddingVertical: 10 * s, paddingHorizontal: 18 * s, gap: 18 * s }]} {...ui('deliv')}>
-          <Text style={[styles.delivLabel, { fontSize: 22 * s }]}>CASHFLOW IM ZULAUF</Text>
-          {pipeline.counts.map((c) => (
-            <Text key={c.stage} style={[styles.delivItem, { fontSize: 22 * s }, c.count === 0 && { color: tv.muted }]}>
-              {c.short} <Text style={[styles.delivNum, c.count === 0 && { color: tv.muted }]}>{c.count}</Text>
-            </Text>
-          ))}
-          <Text style={[styles.delivItem, { fontSize: 22 * s, color: tv.gold }]}>
-            Gesamt <Text style={[styles.delivNum, { color: tv.gold }]}>{pipeline.total}</Text>
-            {pipeline.euro > 0 ? <Text style={[styles.delivNum, { color: tv.gold }]}> · {eur(pipeline.euro)}</Text> : null}
-          </Text>
-        </View>
-      )}
       {view === 'einkauf' ? (
         <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', }} onLayout={onList}>
         <View style={{ gap: 8 * k }} onLayout={onContent}>
@@ -248,8 +232,4 @@ const styles = StyleSheet.create({
   teamTrack: { backgroundColor: '#00000040', borderRadius: 11, overflow: 'hidden' },
   teamFill: { height: '100%', backgroundColor: '#fff', borderRadius: 11 },
   foot: { borderTopWidth: 1, borderColor: tv.track },
-  deliv: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', backgroundColor: tv.row, borderRadius: 8, borderLeftWidth: 6, borderColor: tv.accent },
-  delivLabel: { color: tv.fg, fontWeight: '800', letterSpacing: 2 },
-  delivItem: { color: tv.fg, fontWeight: '600' },
-  delivNum: { fontWeight: '800', color: tv.fg },
 });
