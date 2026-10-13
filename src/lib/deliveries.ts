@@ -71,3 +71,21 @@ export function shortDate(iso: string) {
   const [, m, d] = iso.split('-');
   return `${d}.${m}.`;
 }
+
+/** Stationen auf dem Asana-Board, in Reihenfolge von Beschaffung bis Auszahlung. */
+export const STATIONS: { key: string; label: string; match: RegExp }[] = [
+  { key: 'beschaffung', label: 'Beschaffung', match: /beschaffung/i },
+  { key: 'logistik', label: 'Logistik', match: /logistik/i },
+  { key: 'administration', label: 'Administration', match: /administration/i },
+  { key: 'anlage', label: 'Anlage', match: /anlage/i },
+  { key: 'bestand', label: 'Bestand', match: /verkauf|bestand/i },
+  { key: 'werkstatt', label: 'Werkstatt', match: /disposition|werkstatt/i },
+  { key: 'fertig', label: 'Fertig', match: /fertig/i },
+  { key: 'auslieferung', label: 'Auslieferung', match: /auslieferung/i },
+  { key: 'auszahlung', label: 'Auszahlung', match: /auszahlung|prüfung|pruefung/i },
+];
+
+/** Offene Fahrzeuge je Station (erledigte und andere Spalten wie Stornos, Buchhaltung zählen nicht). */
+export function stationCounts(rows: Delivery[]) {
+  return STATIONS.map((st) => ({ key: st.key, label: st.label, count: rows.filter((r) => !r.completed && st.match.test(r.section)).length }));
+}

@@ -5,7 +5,7 @@ import { Logo, ui } from '@/components/ui';
 import { useAutoUpdate } from '@/lib/auto-update';
 import { useAuth } from '@/lib/auth';
 import { fetchBuyers, fetchDeliveries, fetchLeadTimes, fetchTeamProgress, useLive } from '@/lib/data';
-import { pipelineSummary } from '@/lib/deliveries';
+import { pipelineSummary, stationCounts } from '@/lib/deliveries';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 
 // Gleicher dunkler Prusseit-Look wie die Büro-Anzeige.
@@ -48,6 +48,8 @@ export default function Dashboard() {
   const stand = deliv?.status?.last_success_at
     ? new Date(deliv.status.last_success_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
     : null;
+  const stations = deliv?.status?.last_success_at ? stationCounts(deliv.rows) : null;
+  const maxStation = Math.max(1, ...(stations ?? []).map((x) => x.count));
   const bought = (buyers ?? []).reduce((a, b) => a + b.vehicles, 0);
   const topBuyer = (buyers ?? []).find((b) => b.vehicles > 0);
   const months = (lead?.months ?? []).slice(0, 6).reverse();
@@ -109,24 +111,52 @@ export default function Dashboard() {
         />
       </View>
 
+      {stations && (
+        <View style={[styles.panel, { paddingVertical: f(12), paddingHorizontal: f(16), gap: f(8) }]} {...ui('tv-row')}>
+          <View style={styles.between}>
+            <Text style={[styles.panelTitle, { fontSize: f(16) }]}>PIPELINE</Text>
+            <Text style={[styles.muted, { fontSize: f(13) }]}>
+              {stations.reduce((a, x) => a + x.count, 0)} Fahrzeuge von Beschaffung bis Auszahlung
+            </Text>
+          </View>
+          <View style={[styles.row, { alignItems: 'stretch' }]}>
+            {stations.map((x, i) => (
+              <View key={x.key} style={[styles.row, { flex: 1, alignItems: 'center' }]}>
+                <View style={[styles.station, { paddingVertical: f(8), gap: f(4), borderRadius: f(8) }]}>
+                  <Text style={[styles.strong, { fontSize: f(26) }, x.count === 0 && { color: tv.muted }]}>{x.count}</Text>
+                  <View style={[styles.track, { width: '70%', height: f(5) }]}>
+                    <View style={[styles.fill, { width: `${(x.count / maxStation) * 100}%` }]} />
+                  </View>
+                  <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>
+                    {x.label}
+                  </Text>
+                </View>
+                {i < stations.length - 1 ? <Text style={[styles.muted, { fontSize: f(16), marginHorizontal: f(2) }]}>›</Text> : null}
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
       <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(16) }]}>
         {/* Cashflow je Spalte */}
-        <View style={[styles.panel, { flex: 1, padding: f(18), gap: f(14) }]} {...ui('tv-row')}>
+        <View style={[styles.panel, { flex: 1, padding: f(18), gap: f(12), overflow: 'hidden' }]} {...ui('tv-row')}>
           <Text style={[styles.panelTitle, { fontSize: f(18) }]}>CASHFLOW JE SPALTE</Text>
           {(pipe?.counts ?? []).map((c) => (
             <View key={c.stage} style={{ gap: f(6) }}>
               <View style={styles.between}>
-                <Text style={[styles.fg, { fontSize: f(18) }]}>{c.label}</Text>
+                <Text style={[styles.fg, { fontSize: f(17) }]}>
+                  {c.label} <Text style={styles.muted}>· {c.count}</Text>
+                </Text>
                 <Text style={[styles.strong, { fontSize: f(20) }]}>{eur(c.euro)}</Text>
               </View>
               <View style={[styles.track, { height: f(12) }]}>
                 <View style={[styles.fill, { width: `${(c.euro / maxEuro) * 100}%` }]} {...ui('tv-fill')} />
               </View>
-              <Text style={[styles.muted, { fontSize: f(14) }]}>{c.count} {c.count === 1 ? 'Fahrzeug' : 'Fahrzeuge'}</Text>
             </View>
           ))}
           <Text style={[styles.muted, { fontSize: f(13), marginTop: 'auto' }]}>
-            Direkter Ankauf und Inzahlungnahme, ohne Vermittlung{stand ? ` · Asana ${stand}` : ''}
+            Fahrzeuge je Spalte · ohne Vermittlung{stand ? ` · Asana ${stand}` : ''}
           </Text>
         </View>
 
@@ -193,5 +223,6 @@ const styles = StyleSheet.create({
   chart: { flex: 1, minHeight: 0, flexDirection: 'row', alignItems: 'flex-end' },
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   bar: { width: '70%', backgroundColor: tv.accent },
+  station: { flex: 1, alignItems: 'center', backgroundColor: tv.row },
   listRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: tv.row },
 });

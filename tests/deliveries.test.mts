@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { missingInfo, pipelineSummary, type Delivery } from '../src/lib/deliveries.ts';
+import { missingInfo, pipelineSummary, stationCounts, type Delivery } from '../src/lib/deliveries.ts';
 import { amountOf, dealTypeOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
@@ -105,4 +105,13 @@ test('Standzeit: erster Eingang in Administration bis erste Auslieferung danach'
   assert.equal(needsLeadTime({ section: 'A' }, { section_seen: 'A', ausgeliefert_at: null }), false);
   assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: null }), true);
   assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: '2026-10-01T00:00:00Z' }), false);
+});
+
+test('Pipeline: offene Fahrzeuge je Station', () => {
+  const r = (section: string, completed = false) => ({ ...d(null, 'sonstige'), section, completed });
+  const s = stationCounts([
+    r('FZG.-Beschaffung'), r('FZG.-Verkauf (Bestand)'), r('FZG.-Verkauf (Bestand)'), r('FZG.-Disposition/ Werkstatt'),
+    r('FZG.- Fertig'), r('Auslieferung'), r('Auszahlung/ Prüfung'), r('Stornos'), r('Buchhaltung'), r('Abgeschlossen', true), r('FZG.-Anlage', true),
+  ]);
+  assert.deepEqual(s.map((x) => x.count), [1, 0, 0, 0, 2, 1, 1, 1, 1]);
 });
