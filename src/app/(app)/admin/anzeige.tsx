@@ -58,8 +58,8 @@ export default function Anzeige() {
         <Muted>Die Anzeige im Büro übernimmt die Auswahl nach wenigen Sekunden, ohne dass du dort etwas tun musst.</Muted>
       </Card>
       <Button title="Büro-Anzeige öffnen" onPress={() => router.push('/buero')} />
-      <Button variant="ghost" title="Dashboard öffnen (Cashflow, Einkauf, Standzeit)" onPress={() => router.push('/dashboard')} />
-      <Button variant="ghost" title="3D-Autohaus öffnen (Prototyp)" onPress={() => router.push('/dashboard/3d')} />
+      <Button variant="ghost" title="Dashboard öffnen (3D-Autohaus mit allen Zahlen)" onPress={() => router.push('/dashboard')} />
+      <Button variant="ghost" title="Dashboard ohne 3D (für schwache Geräte)" onPress={() => router.push('/dashboard/klassisch')} />
     </Screen>
   );
 }

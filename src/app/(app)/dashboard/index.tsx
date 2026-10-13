@@ -1,24 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
+import { Autohaus3D, type Facade } from '@/components/Autohaus3D';
 import { Logo, ui } from '@/components/ui';
 import { useAutoUpdate } from '@/lib/auto-update';
 import { useAuth } from '@/lib/auth';
+import { layoutCars } from '@/lib/autohaus-layout';
 import { fetchBuyers, fetchDeliveries, fetchLeadTimes, fetchTeamProgress, useLive } from '@/lib/data';
-import { pipelineSummary, stationCounts } from '@/lib/deliveries';
+import { pipelineSummary, stationCounts, STATIONS } from '@/lib/deliveries';
 import { eur, monthLabel, monthStart } from '@/lib/format';
 
-// Gleicher dunkler Prusseit-Look wie die Büro-Anzeige.
-const tv = { bg: '#141414', panel: '#1e1e1f', row: '#29292b', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c', warn: '#ff8a65' };
+// Dunkler Prusseit-Look wie die Büro-Anzeige.
+const tv = { bg: '#121214', panel: 'rgba(30,30,32,0.92)', row: '#29292b', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c', warn: '#ff8a65' };
 
 const tage = (n: number | null | undefined) => (n == null ? '–' : `${Math.round(Number(n))}`);
 const shortMonth = (m: string) => new Date(`${m}T12:00:00`).toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 
-/** TV-Dashboard für die Geschäftsführung: Cashflow, Verkauf, Einkauf und Standzeit auf einen Blick. Aktualisiert sich selbst. */
+/**
+ * TV-Dashboard für die Geschäftsführung: in der Mitte das Autohaus in 3D (jedes Auto = ein Fahrzeug aus Asana),
+ * drumherum alle Kennzahlen. Jede Quelle lädt einzeln, hakt eine, zeigen die anderen trotzdem ihre Zahlen.
+ * Ohne 3D: /dashboard/klassisch.
+ */
 export default function Dashboard() {
   const { profile } = useAuth();
   const { width, height } = useWindowDimensions();
   useAutoUpdate();
+  const { winkel } = useLocalSearchParams<{ winkel?: string }>(); // Startblickwinkel in Grad
   const s = Math.max(0.55, Math.min(2, width / 1280, height / 720));
   const [month, setMonth] = useState(monthStart());
   const [now, setNow] = useState(new Date());
@@ -30,11 +38,17 @@ export default function Dashboard() {
     return () => clearInterval(t);
   }, []);
 
-  // Jede Quelle einzeln: Hakt eine (z. B. Asana), zeigen die anderen Kacheln trotzdem ihre Zahlen.
   const { data: deliv } = useLive(fetchDeliveries, []);
   const { data: team } = useLive(() => fetchTeamProgress(month).catch(() => null), [month]);
   const { data: buyers } = useLive(fetchBuyers, []);
   const { data: lead } = useLive(() => fetchLeadTimes().catch(() => null), []);
+
+  const rows = deliv?.status?.last_success_at ? deliv.rows : null;
+  const days = useMemo(() => new Map((lead?.open ?? []).map((o) => [o.task_gid, Number(o.days)])), [lead]);
+  const yard = useMemo(
+    () => layoutCars((rows ?? []).filter((r) => !r.completed).map((r) => ({ gid: r.task_gid, section: r.section, days: days.get(r.task_gid) ?? null })), STATIONS),
+    [rows, days],
+  );
 
   if (profile && profile.role !== 'admin') {
     return (
@@ -44,11 +58,9 @@ export default function Dashboard() {
     );
   }
 
-  const pipe = deliv?.status?.last_success_at ? pipelineSummary(deliv.rows) : null;
-  const stand = deliv?.status?.last_success_at
-    ? new Date(deliv.status.last_success_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })
-    : null;
-  const stations = deliv?.status?.last_success_at ? stationCounts(deliv.rows) : null;
+  const pipe = rows ? pipelineSummary(rows) : null;
+  const stand = deliv?.status?.last_success_at ? new Date(deliv.status.last_success_at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : null;
+  const stations = rows ? stationCounts(rows) : null;
   const maxStation = Math.max(1, ...(stations ?? []).map((x) => x.count));
   const bought = (buyers ?? []).reduce((a, b) => a + b.vehicles, 0);
   const topBuyer = (buyers ?? []).find((b) => b.vehicles > 0);
@@ -56,20 +68,29 @@ export default function Dashboard() {
   const thisMonth = lead?.months.find((m) => m.month === month);
   const open = lead?.open ?? [];
   const openAvg = open.length ? open.reduce((a, o) => a + Number(o.days), 0) / open.length : null;
-  const longest = open.slice(0, 10); // was nicht passt, wird unten abgeschnitten
+  const longCount = open.filter((o) => Number(o.days) >= 60).length;
   const maxAvg = Math.max(1, ...months.map((m) => Number(m.avg_days)));
   const maxEuro = Math.max(1, ...(pipe?.counts ?? []).map((c) => c.euro));
   const teamPct = team?.target_vehicles ? Math.round((team.vehicles / team.target_vehicles) * 100) : null;
+  const teamText = team ? (team.target_vehicles ? `${team.vehicles} / ${team.target_vehicles}` : `${team.vehicles}`) : '–';
+  const facade: Facade = {
+    cashflow: pipe ? eur(pipe.euro) : '–',
+    team: teamText,
+    standzeit: thisMonth ? `${tage(thisMonth.avg_days)} Tage` : '–',
+    einkauf: buyers ? `${bought} Fahrzeuge` : '–',
+  };
 
   const f = (n: number) => n * s;
   const Tile = ({ label, value, sub, color = tv.fg }: { label: string; value: string; sub?: string; color?: string }) => (
-    <View style={[styles.tile, { padding: f(16), gap: f(4) }]} {...ui('tv-row')}>
-      <Text style={[styles.label, { fontSize: f(15) }]}>{label}</Text>
-      <Text style={[styles.big, { fontSize: f(40), color }]} numberOfLines={1} adjustsFontSizeToFit>
+    <View style={[styles.tile, { paddingVertical: f(10), paddingHorizontal: f(14), gap: f(2) }]} {...ui('tv-row')}>
+      <Text style={[styles.label, { fontSize: f(13) }]} numberOfLines={1}>
+        {label}
+      </Text>
+      <Text style={[styles.big, { fontSize: f(34), color }]} numberOfLines={1} adjustsFontSizeToFit>
         {value}
       </Text>
       {sub ? (
-        <Text style={[styles.muted, { fontSize: f(15) }]} numberOfLines={1}>
+        <Text style={[styles.muted, { fontSize: f(13) }]} numberOfLines={1}>
           {sub}
         </Text>
       ) : null}
@@ -77,147 +98,149 @@ export default function Dashboard() {
   );
 
   return (
-    <View style={[styles.root, { padding: f(28), gap: f(16) }]} {...ui('tv')}>
-      <View style={[styles.head, { paddingBottom: f(12) }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: f(20) }}>
-          <View style={[styles.logoPlate, { padding: f(6) }]}>
-            <Logo height={f(42)} />
+    <View style={[styles.root, { padding: f(18), gap: f(12) }]} {...ui('tv')}>
+      <View style={[styles.head, { paddingBottom: f(8) }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: f(16) }}>
+          <View style={[styles.logoPlate, { padding: f(5) }]}>
+            <Logo height={f(32)} />
           </View>
-          <Text style={[styles.title, { fontSize: f(36) }]}>DASHBOARD</Text>
+          <Text style={[styles.title, { fontSize: f(28) }]}>DASHBOARD</Text>
         </View>
-        <Text style={[styles.muted, { fontSize: f(20) }]}>
+        <Text style={[styles.muted, { fontSize: f(17) }]}>
           {monthLabel(month)} · {now.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}
+          {stand ? ` · Asana ${stand}` : ''}
         </Text>
       </View>
 
-      <View style={[styles.row, { gap: f(16) }]}>
+      <View style={[styles.row, { gap: f(12) }]}>
         <Tile
           label="CASHFLOW IM ZULAUF"
           value={pipe ? eur(pipe.euro) : '–'}
           sub={pipe ? `${pipe.total} Fahrzeuge${pipe.missing ? ` · ${pipe.missing} ohne Preis/Art` : ''}` : 'Asana nicht erreichbar'}
           color={tv.gold}
         />
-        <Tile
-          label={`VERKAUFT ${monthLabel(month).toUpperCase()}`}
-          value={team ? (team.target_vehicles ? `${team.vehicles} / ${team.target_vehicles}` : `${team.vehicles}`) : '–'}
-          sub={teamPct != null ? `${teamPct} % vom Teamziel` : 'Fahrzeuge'}
-          color={teamPct != null && teamPct >= 100 ? tv.good : tv.fg}
-        />
+        <Tile label={`VERKAUFT ${monthLabel(month).toUpperCase()}`} value={teamText} sub={teamPct != null ? `${teamPct} % vom Teamziel` : 'Fahrzeuge'} color={teamPct != null && teamPct >= 100 ? tv.good : tv.fg} />
         <Tile label="EINGEKAUFT IM MONAT" value={buyers ? `${bought}` : '–'} sub={topBuyer ? `Vorne: ${topBuyer.buyer} (${topBuyer.vehicles})` : 'Fahrzeuge laut Asana'} />
-        <Tile
-          label="Ø STANDZEIT IM MONAT"
-          value={thisMonth ? `${tage(thisMonth.avg_days)} Tage` : '–'}
-          sub={thisMonth ? `Median ${tage(thisMonth.median_days)} · ${thisMonth.vehicles} ausgeliefert` : 'Eingang bis Auslieferung'}
-        />
+        <Tile label="Ø STANDZEIT IM MONAT" value={thisMonth ? `${tage(thisMonth.avg_days)} Tage` : '–'} sub={thisMonth ? `Median ${tage(thisMonth.median_days)} · ${thisMonth.vehicles} ausgeliefert` : 'Eingang bis Auslieferung'} />
+        <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} Tage · ${longCount} über 60 Tage` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
       </View>
 
-      {stations && (
-        <View style={[styles.panel, { paddingVertical: f(12), paddingHorizontal: f(16), gap: f(8) }]} {...ui('tv-row')}>
+      <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(12) }]}>
+        {/* links: Cashflow je Spalte und Standzeit-Verlauf */}
+        <View style={{ flex: 1.1, gap: f(12), minHeight: 0 }}>
+          <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(8), overflow: 'hidden' }]} {...ui('tv-row')}>
+            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>CASHFLOW JE SPALTE</Text>
+            {(pipe?.counts ?? []).map((c) => (
+              <View key={c.stage} style={{ gap: f(4) }}>
+                <View style={styles.between}>
+                  <Text style={[styles.fg, { fontSize: f(14) }]} numberOfLines={1}>
+                    {c.label} <Text style={styles.muted}>· {c.count}</Text>
+                  </Text>
+                  <Text style={[styles.strong, { fontSize: f(16) }]}>{eur(c.euro)}</Text>
+                </View>
+                <View style={[styles.track, { height: f(8) }]}>
+                  <View style={[styles.fill, { width: `${(c.euro / maxEuro) * 100}%` }]} {...ui('tv-fill')} />
+                </View>
+              </View>
+            ))}
+            <Text style={[styles.muted, { fontSize: f(11), marginTop: 'auto' }]}>ohne Vermittlung</Text>
+          </View>
+          <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(6) }]} {...ui('tv-row')}>
+            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>Ø STANDZEIT JE MONAT</Text>
+            <View style={[styles.chart, { gap: f(6) }]}>
+              {months.map((m) => (
+                <View key={m.month} style={[styles.barCol, { gap: f(3) }]}>
+                  <Text style={[styles.strong, { fontSize: f(14) }]}>{tage(m.avg_days)}</Text>
+                  <View style={[styles.bar, { height: `${(Number(m.avg_days) / maxAvg) * 62}%`, borderRadius: f(4) }, m.month === month && { backgroundColor: tv.gold }]} />
+                  <Text style={[styles.muted, { fontSize: f(11) }]}>{shortMonth(m.month)}</Text>
+                </View>
+              ))}
+              {lead && months.length === 0 && <Text style={styles.muted}>Noch keine Daten</Text>}
+            </View>
+            <Text style={[styles.muted, { fontSize: f(11) }]}>Tage vom Eingang bis Auszahlung/Prüfung</Text>
+          </View>
+        </View>
+
+        {/* Mitte: das Autohaus */}
+        <View style={[styles.stage, { flex: 2.5, borderRadius: f(10) }]}>
+          <Autohaus3D cars={yard.placed} zones={yard.counts} facade={facade} startAngle={winkel ? (Number(winkel) * Math.PI) / 180 : undefined} />
+          <View pointerEvents="none" style={[styles.legend, { margin: f(10), paddingVertical: f(6), paddingHorizontal: f(10), gap: f(14), borderRadius: f(8) }]}>
+            <Text style={{ color: tv.fg, fontSize: f(12) }}>Jedes Auto = ein Fahrzeug aus Asana</Text>
+            <Text style={{ color: '#ff4d4d', fontSize: f(12), fontWeight: '700' }}>◆ rot = steht seit 60+ Tagen</Text>
+            {!rows ? <Text style={{ color: tv.muted, fontSize: f(12) }}>Asana-Daten werden geladen …</Text> : null}
+          </View>
+        </View>
+
+        {/* rechts: Langsteher */}
+        <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(6) }]} {...ui('tv-row')}>
           <View style={styles.between}>
-            <Text style={[styles.panelTitle, { fontSize: f(16) }]}>PIPELINE</Text>
-            <Text style={[styles.muted, { fontSize: f(13) }]}>
-              {stations.reduce((a, x) => a + x.count, 0)} Fahrzeuge von Beschaffung bis Auszahlung
-            </Text>
+            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>LANGSTEHER</Text>
+            <Text style={[styles.muted, { fontSize: f(12) }]}>{open.length} stehen</Text>
+          </View>
+          <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: f(5) }}>
+            {open.slice(0, 14).map((o) => (
+              <View key={o.task_gid} style={[styles.listRow, { paddingVertical: f(5), paddingHorizontal: f(8), gap: f(8), borderRadius: f(6) }]}>
+                <Text style={[styles.strong, { width: f(52), fontSize: f(15), color: Number(o.days) >= 60 ? tv.warn : tv.fg }]} numberOfLines={1}>
+                  {tage(o.days)} T.
+                </Text>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={[styles.fg, { fontSize: f(13) }]} numberOfLines={1}>
+                    {o.name.split('/')[0].trim()}
+                  </Text>
+                  <Text style={[styles.muted, { fontSize: f(11) }]} numberOfLines={1}>
+                    {o.section.replace(/^FZG\.-\s?/, '')}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+
+      {/* unten: Pipeline groß, Schritt für Schritt */}
+      {stations && (
+        <View style={[styles.panel, { paddingVertical: f(10), paddingHorizontal: f(14), gap: f(6) }]} {...ui('tv-row')}>
+          <View style={styles.between}>
+            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>PIPELINE</Text>
+            <Text style={[styles.muted, { fontSize: f(12) }]}>{stations.reduce((a, x) => a + x.count, 0)} Fahrzeuge von Beschaffung bis Auszahlung</Text>
           </View>
           <View style={[styles.row, { alignItems: 'stretch' }]}>
             {stations.map((x, i) => (
               <View key={x.key} style={[styles.row, { flex: 1, alignItems: 'center' }]}>
                 <View style={[styles.station, { paddingVertical: f(8), gap: f(4), borderRadius: f(8) }]}>
-                  <Text style={[styles.strong, { fontSize: f(26) }, x.count === 0 && { color: tv.muted }]}>{x.count}</Text>
-                  <View style={[styles.track, { width: '70%', height: f(5) }]}>
+                  <Text style={[styles.muted, { fontSize: f(13), fontWeight: '700' }]} numberOfLines={1}>
+                    {i + 1} · {x.label}
+                  </Text>
+                  <Text style={[styles.strong, { fontSize: f(38), lineHeight: f(42) }, x.count === 0 && { color: tv.muted }]}>{x.count}</Text>
+                  <View style={[styles.track, { width: '76%', height: f(6) }]}>
                     <View style={[styles.fill, { width: `${(x.count / maxStation) * 100}%` }]} />
                   </View>
-                  <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>
-                    {x.label}
-                  </Text>
                 </View>
-                {i < stations.length - 1 ? <Text style={[styles.muted, { fontSize: f(16), marginHorizontal: f(2) }]}>›</Text> : null}
+                {i < stations.length - 1 ? <Text style={[styles.muted, { fontSize: f(20), marginHorizontal: f(3) }]}>›</Text> : null}
               </View>
             ))}
           </View>
         </View>
       )}
-
-      <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(16) }]}>
-        {/* Cashflow je Spalte */}
-        <View style={[styles.panel, { flex: 1, padding: f(18), gap: f(12), overflow: 'hidden' }]} {...ui('tv-row')}>
-          <Text style={[styles.panelTitle, { fontSize: f(18) }]}>CASHFLOW JE SPALTE</Text>
-          {(pipe?.counts ?? []).map((c) => (
-            <View key={c.stage} style={{ gap: f(6) }}>
-              <View style={styles.between}>
-                <Text style={[styles.fg, { fontSize: f(17) }]}>
-                  {c.label} <Text style={styles.muted}>· {c.count}</Text>
-                </Text>
-                <Text style={[styles.strong, { fontSize: f(20) }]}>{eur(c.euro)}</Text>
-              </View>
-              <View style={[styles.track, { height: f(12) }]}>
-                <View style={[styles.fill, { width: `${(c.euro / maxEuro) * 100}%` }]} {...ui('tv-fill')} />
-              </View>
-            </View>
-          ))}
-          <Text style={[styles.muted, { fontSize: f(13), marginTop: 'auto' }]}>
-            Fahrzeuge je Spalte · ohne Vermittlung{stand ? ` · Asana ${stand}` : ''}
-          </Text>
-        </View>
-
-        {/* Standzeit-Verlauf */}
-        <View style={[styles.panel, { flex: 1.1, padding: f(18), gap: f(10) }]} {...ui('tv-row')}>
-          <Text style={[styles.panelTitle, { fontSize: f(18) }]}>Ø STANDZEIT JE MONAT (TAGE)</Text>
-          <View style={[styles.chart, { gap: f(10) }]}>
-            {months.map((m) => (
-              <View key={m.month} style={[styles.barCol, { gap: f(6) }]}>
-                <Text style={[styles.strong, { fontSize: f(18) }]}>{tage(m.avg_days)}</Text>
-                <View style={[styles.bar, { height: `${(Number(m.avg_days) / maxAvg) * 70}%`, borderRadius: f(6) }, m.month === month && { backgroundColor: tv.gold }]} />
-                <Text style={[styles.muted, { fontSize: f(14) }]}>{shortMonth(m.month)}</Text>
-              </View>
-            ))}
-            {lead && months.length === 0 && <Text style={styles.muted}>Noch keine Daten</Text>}
-          </View>
-          <Text style={[styles.muted, { fontSize: f(13) }]}>Vom Eingang (Administration) bis Auszahlung/Prüfung, nach Monat der Auslieferung</Text>
-        </View>
-
-        {/* Längste Standzeiten */}
-        <View style={[styles.panel, { flex: 1, padding: f(18), gap: f(8) }]} {...ui('tv-row')}>
-          <View style={styles.between}>
-            <Text style={[styles.panelTitle, { fontSize: f(18) }]}>LANGSTEHER</Text>
-            <Text style={[styles.muted, { fontSize: f(14) }]}>
-              {open.length} stehen · Ø {tage(openAvg)} T.
-            </Text>
-          </View>
-          <View style={{ flex: 1, minHeight: 0, overflow: 'hidden', gap: f(6) }}>
-            {longest.map((o) => (
-              <View key={o.task_gid} style={[styles.listRow, { paddingVertical: f(6), paddingHorizontal: f(10), gap: f(10), borderRadius: f(6) }]}>
-                <Text style={[styles.strong, { width: f(58), fontSize: f(18), color: Number(o.days) >= 60 ? tv.warn : tv.fg }]}>{tage(o.days)} T.</Text>
-                <Text style={[styles.fg, { flex: 1, fontSize: f(15) }]} numberOfLines={1}>
-                  {o.name.split('/')[0].trim()}
-                </Text>
-                <Text style={[styles.muted, { fontSize: f(12), maxWidth: f(110) }]} numberOfLines={1}>
-                  {o.section.replace('FZG.-', '').replace('FZG.- ', '')}
-                </Text>
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: tv.bg },
-  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 4, borderColor: tv.accent },
+  head: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 3, borderColor: tv.accent },
   logoPlate: { backgroundColor: '#fff', borderRadius: 6 },
   title: { color: tv.fg, fontWeight: '800', letterSpacing: 1.5 },
   row: { flexDirection: 'row' },
-  tile: { flex: 1, backgroundColor: tv.panel, borderRadius: 10, borderTopWidth: 4, borderColor: tv.accent },
-  label: { color: tv.muted, fontWeight: '800', letterSpacing: 1.5 },
+  tile: { flex: 1, backgroundColor: tv.panel, borderRadius: 10, borderTopWidth: 3, borderColor: tv.accent },
+  label: { color: tv.muted, fontWeight: '800', letterSpacing: 1.2 },
   big: { fontWeight: '800', fontVariant: ['tabular-nums'] },
   muted: { color: tv.muted },
   fg: { color: tv.fg, fontWeight: '600' },
   strong: { color: tv.fg, fontWeight: '800', fontVariant: ['tabular-nums'] },
   panel: { backgroundColor: tv.panel, borderRadius: 10 },
   panelTitle: { color: tv.fg, fontWeight: '800', letterSpacing: 1.5 },
-  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   track: { backgroundColor: tv.track, borderRadius: 6, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: tv.accent, borderRadius: 6 },
   chart: { flex: 1, minHeight: 0, flexDirection: 'row', alignItems: 'flex-end' },
@@ -225,4 +248,12 @@ const styles = StyleSheet.create({
   bar: { width: '70%', backgroundColor: tv.accent },
   station: { flex: 1, alignItems: 'center', backgroundColor: tv.row },
   listRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: tv.row },
+  stage: {
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#2c2c30',
+    backgroundColor: '#0f1420',
+    backgroundImage: 'linear-gradient(#0d1220, #22213a 55%, #3a2a2e)',
+  } as object,
+  legend: { position: 'absolute', left: 0, bottom: 0, flexDirection: 'row', backgroundColor: 'rgba(16,16,18,0.82)' },
 });

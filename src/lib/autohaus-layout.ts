@@ -17,10 +17,10 @@ export type Zone = {
 
 export const ZONES: Zone[] = [
   // hinter dem Haus: Anlieferung und Papierkram
-  { key: 'beschaffung', label: 'Beschaffung', x0: -62, z0: -26, cols: 5, sx: 2.8, sz: -5.5, maxRows: 3 },
-  { key: 'logistik', label: 'Logistik', x0: -46, z0: -26, cols: 3, sx: 2.8, sz: -5.5, maxRows: 3 },
-  { key: 'administration', label: 'Administration', x0: -34, z0: -26, cols: 3, sx: 2.8, sz: -5.5, maxRows: 3 },
-  { key: 'anlage', label: 'Anlage', x0: -20, z0: -26, cols: 3, sx: 2.8, sz: -5.5, maxRows: 3 },
+  { key: 'beschaffung', label: 'Beschaffung', x0: -63, z0: -26, cols: 4, sx: 2.8, sz: -5.5, maxRows: 3 },
+  { key: 'logistik', label: 'Logistik', x0: -49, z0: -26, cols: 3, sx: 2.8, sz: -5.5, maxRows: 3 },
+  { key: 'administration', label: 'Administration', x0: -37, z0: -26, cols: 3, sx: 2.8, sz: -5.5, maxRows: 3 },
+  { key: 'anlage', label: 'Anlage', x0: -25, z0: -26, cols: 3, sx: 2.8, sz: -5.5, maxRows: 3 },
   // links neben dem Haus: Werkstatt, davor Auszahlung
   { key: 'werkstatt', label: 'Werkstatt', x0: -84, z0: -20, cols: 6, sx: 2.8, sz: 5.5, maxRows: 5 },
   { key: 'auszahlung', label: 'Auszahlung', x0: -84, z0: 10, cols: 9, sx: 2.8, sz: 5.5, maxRows: 3 },
