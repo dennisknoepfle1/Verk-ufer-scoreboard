@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { missingInfo, pipelineSummary, stationCounts, type Delivery } from '../src/lib/deliveries.ts';
+import { missingInfo, pipelineSummary, stationCounts, STATIONS, type Delivery } from '../src/lib/deliveries.ts';
+import { layoutCars } from '../src/lib/autohaus-layout.ts';
 import { amountOf, dealTypeOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
@@ -114,4 +115,22 @@ test('Pipeline: offene Fahrzeuge je Station', () => {
     r('FZG.- Fertig'), r('Auslieferung'), r('Auszahlung/ Prüfung'), r('Stornos'), r('Buchhaltung'), r('Abgeschlossen', true), r('FZG.-Anlage', true),
   ]);
   assert.deepEqual(s.map((x) => x.count), [1, 0, 0, 0, 2, 1, 1, 1, 1]);
+});
+
+test('3D-Autohaus: Fahrzeuge bekommen Stellplätze in ihrer Zone', () => {
+  const cars = [
+    ...Array.from({ length: 350 }, (_, i) => ({ gid: `b${String(i).padStart(3, '0')}`, section: 'FZG.-Verkauf (Bestand)', days: i === 5 ? 80 : 10 })),
+    { gid: 'f1', section: 'FZG.- Fertig' },
+    { gid: 's1', section: 'Stornos' },
+  ];
+  const { placed, counts } = layoutCars(cars, STATIONS);
+  const bestand = counts.find((c) => c.zone.key === 'bestand')!;
+  assert.equal(bestand.count, 350);
+  assert.equal(bestand.hidden, 350 - 26 * 13);
+  assert.equal(placed.filter((p) => p.zone === 'bestand').length, 26 * 13);
+  assert.equal(placed.find((p) => p.gid === 'b005')!.long, true);
+  assert.ok(placed.find((p) => p.gid === 'f1'));
+  assert.equal(placed.find((p) => p.gid === 's1'), undefined, 'Stornos stehen nicht auf dem Hof');
+  // keine zwei Autos auf demselben Platz
+  assert.equal(new Set(placed.map((p) => `${p.x.toFixed(1)},${p.z.toFixed(1)}`)).size, placed.length);
 });

@@ -59,6 +59,7 @@ export default function Anzeige() {
       </Card>
       <Button title="Büro-Anzeige öffnen" onPress={() => router.push('/buero')} />
       <Button variant="ghost" title="Dashboard öffnen (Cashflow, Einkauf, Standzeit)" onPress={() => router.push('/dashboard')} />
+      <Button variant="ghost" title="3D-Autohaus öffnen (Prototyp)" onPress={() => router.push('/dashboard/3d')} />
     </Screen>
   );
 }
