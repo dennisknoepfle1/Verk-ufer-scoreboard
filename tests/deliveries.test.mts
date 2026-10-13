@@ -77,9 +77,10 @@ test('Euro: nur direkter Ankauf zählt, fehlende Angaben werden markiert', () =>
     { ...d(null, 'ausgeliefert'), amount: 30000, deal_type: 'Vermittlung' },
     { ...d(null, 'ausgeliefert'), amount: null, deal_type: 'Direkter Ankauf' },
     { ...d(null, 'auslieferung'), amount: 9000, deal_type: null },
+    { ...d(null, 'auslieferung'), amount: 7000, deal_type: 'Inzahlungnahme' },
   ]);
-  assert.equal(s.euro, 35000.5);
-  assert.deepEqual(s.counts.map((c) => c.euro), [15000.5, 0, 20000]);
+  assert.equal(s.euro, 42000.5);
+  assert.deepEqual(s.counts.map((c) => c.euro), [15000.5, 7000, 20000]);
   assert.equal(s.missing, 2);
   assert.equal(missingInfo(direct), null);
   assert.equal(missingInfo({ ...direct, amount: null }), 'Verkaufspreis fehlt');

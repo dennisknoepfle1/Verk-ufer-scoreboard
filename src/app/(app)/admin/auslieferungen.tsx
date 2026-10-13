@@ -88,7 +88,7 @@ export default function Auslieferungen() {
             </Notice>
           )}
           <Muted>
-            In Euro zählt nur der direkte Ankauf (Asana-Feld „Verkaufspreis“), Vermittlungen nicht. Stand: {timeLabel(status.last_success_at)} · „Auszahlung / Prüfung“ ist am nächsten am Geld, danach Auslieferung und Fahrzeug fertig.
+            In Euro zählen eigene Fahrzeuge (direkter Ankauf und Inzahlungnahme, Asana-Feld „Verkaufspreis“), Vermittlungen nicht. Stand: {timeLabel(status.last_success_at)} · „Auszahlung / Prüfung“ ist am nächsten am Geld, danach Auslieferung und Fahrzeug fertig.
           </Muted>
         </Card>
       ) : null}

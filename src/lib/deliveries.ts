@@ -18,9 +18,10 @@ export type Delivery = {
   deal_type?: string | null; // Asana-Feld „Art des Geschäftes“
 };
 
-/** Nur eigene Fahrzeuge (direkter Ankauf) bringen Cashflow, Vermittlungen nicht. */
+/** Nur eigene Fahrzeuge (direkter Ankauf, Inzahlungnahme) bringen Cashflow, Vermittlungen nicht. */
 export function isDirect(d: Delivery) {
-  return (d.deal_type ?? '').trim().toLowerCase().startsWith('direkt');
+  const t = (d.deal_type ?? '').trim().toLowerCase();
+  return t.startsWith('direkt') || t.startsWith('inzahlung');
 }
 
 /** Was in Asana fehlt, damit der Euro-Betrag stimmt (null = alles da). */
@@ -41,7 +42,7 @@ export type PipelineSummary = {
   vehicles: Delivery[];
   counts: { stage: Exclude<Stage, 'sonstige'>; label: string; short: string; count: number; euro: number }[];
   total: number;
-  /** Summe Verkaufspreis aller Fahrzeuge im direkten Ankauf. */
+  /** Summe Verkaufspreis aller eigenen Fahrzeuge (direkter Ankauf, Inzahlungnahme). */
   euro: number;
   /** Fahrzeuge, bei denen Ankaufsart oder Betrag in Asana fehlt. */
   missing: number;
