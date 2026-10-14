@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcCommission, gapToNextRank, goalProgress, parseEuro, type BoardRow } from '../src/lib/scoring.ts';
+import { calcCommission, gapToNextRank, goalProgress, parseEuro, rankBarShare, type BoardRow } from '../src/lib/scoring.ts';
 
 const rates = { base_amount: 100, bank_pct: 20, winter_wheels_pct: 10, registration_pct: 10 };
 
@@ -47,4 +47,12 @@ test('Autorennen: Ziellinie ist das eigene Monatsziel', async () => {
   assert.equal(lanes[1].finished, true);
   assert.equal(lanes[2].finish, 10); // kein eigenes Ziel: höchstes Ziel im Team
   assert.equal(raceLanes([row('x', 4, null), row('y', 2, null)])[1].progress, 0.5);
+});
+
+test('Ranglisten-Balken: Anteil am eigenen Ziel, nicht am Spitzenreiter', () => {
+  assert.equal(rankBarShare(14, 40, 14), 0.35);
+  assert.equal(rankBarShare(7, 30, 14), 7 / 30);
+  assert.equal(rankBarShare(45, 40, 45), 1);
+  assert.equal(rankBarShare(7, null, 14), 0.5);
+  assert.equal(rankBarShare(0, null, 0), 0);
 });

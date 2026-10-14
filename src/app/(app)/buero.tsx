@@ -8,7 +8,7 @@ import { Logo, ui } from '@/components/ui';
 import { badgeIcons, type BadgeKey } from '@/lib/badges';
 import { fetchBadges, fetchBuyers, fetchDeliveries, fetchDisplayView, fetchFeed, fetchLatestSale, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
 import { eur, monthLabel, monthStart } from '@/lib/format';
-import { raceLanes } from '@/lib/scoring';
+import { raceLanes, rankBarShare } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
 import { useAutoUpdate } from '@/lib/auto-update';
 
@@ -178,7 +178,7 @@ export default function Buero() {
                 {icons[r.seller_id] ? <Text style={{ fontSize: 22 * k, flexShrink: 0 }} numberOfLines={1}>{icons[r.seller_id]}</Text> : null}
               </View>
               <View style={[styles.track, { flex: 1.3, height: 14 * k }]}>
-                <View style={[styles.fill, { width: `${(r.vehicles / max) * 100}%` }]} {...ui('tv-fill')} />
+                <View style={[styles.fill, { width: `${rankBarShare(r.vehicles, r.target_vehicles, max) * 100}%` }]} {...ui('tv-fill')} />
               </View>
               <Text style={[styles.cell, { width: 140 * k, fontSize: 30 * k, textAlign: 'right' }]}>
                 {r.vehicles}

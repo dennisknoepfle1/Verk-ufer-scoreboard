@@ -87,3 +87,9 @@ export function raceLanes(rows: BoardRow[]): RaceLane[] {
     };
   });
 }
+
+/** Balkenfüllung 0..1 in der Rangliste: verkauft / eigenes Monatsziel; ohne Ziel im Verhältnis zum Spitzenreiter. */
+export function rankBarShare(vehicles: number, target: number | null, maxVehicles: number) {
+  if (target && target > 0) return Math.min(1, vehicles / target);
+  return maxVehicles > 0 ? Math.min(1, vehicles / maxVehicles) : 0;
+}

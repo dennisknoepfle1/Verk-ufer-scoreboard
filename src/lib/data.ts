@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 
 import type { BoardRow, Rates } from './scoring';
@@ -136,24 +136,45 @@ function isAuthExpired(e: unknown) {
   return m.includes('jwt') || m.includes('401') || m.includes('unauthorized');
 }
 
+/**
+ * Kurze Netz- oder Server-Aussetzer (im Safari „Load failed“) sollen beim Nutzer nicht als Fehler ankommen:
+ * bis zu drei Neuversuche mit kurzer Pause. Sind schon Daten da, bleiben sie stehen und der nächste Takt lädt neu;
+ * ein Fehler erscheint nur, wenn noch gar nichts geladen werden konnte.
+ */
+export const RETRY_DELAYS_MS = [1_000, 3_000, 6_000];
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+export async function withRetry<T>(load: () => Promise<T>, delays = RETRY_DELAYS_MS): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await load();
+    } catch (e) {
+      if (isAuthExpired(e)) {
+        await supabase.auth.refreshSession().catch(() => undefined);
+      }
+      if (attempt >= delays.length) throw e;
+      await sleep(delays[attempt]);
+    }
+  }
+}
+
 export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasData = useRef(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const reload = useCallback(load, deps);
 
   const run = useCallback(() => {
-    reload()
-      .catch(async (e) => {
-        if (!isAuthExpired(e)) throw e;
-        await supabase.auth.refreshSession();
-        return reload();
-      })
+    withRetry(reload)
       .then((d) => {
+        hasData.current = true;
         setData(d);
         setError(null);
       })
-      .catch((e) => setError(e?.message ?? 'Laden fehlgeschlagen'));
+      .catch((e) => {
+        if (!hasData.current) setError(e?.message ?? 'Laden fehlgeschlagen');
+      });
   }, [reload]);
 
   useEffect(() => {
