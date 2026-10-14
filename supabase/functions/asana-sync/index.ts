@@ -80,7 +80,7 @@ async function fetchStories(token: string, taskGid: string) {
   for (let page = 0; page < 5; page++) {
     const url = new URL(`https://app.asana.com/api/1.0/tasks/${taskGid}/stories`);
     url.searchParams.set('limit', '100');
-    url.searchParams.set('opt_fields', 'created_at,resource_subtype,new_section.name');
+    url.searchParams.set('opt_fields', 'created_at,resource_subtype,new_section.name,old_section.name');
     if (offset) url.searchParams.set('offset', offset);
     const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(15_000) });
     if (!res.ok) throw new Error(`Status ${res.status}`);
@@ -94,7 +94,7 @@ async function fetchStories(token: string, taskGid: string) {
 
 async function updateLeadTimes(token: string, rows: ReturnType<typeof toRow>[]) {
   const deadline = Date.now() + 90_000;
-  const { data: known, error } = await db.from('asana_lead_times').select('task_gid, section_seen, ausgeliefert_at');
+  const { data: known, error } = await db.from('asana_lead_times').select('task_gid, section_seen, ausgeliefert_at, delivered_checked');
   if (error) throw new Error(error.message);
   const byGid = new Map((known ?? []).map((k) => [k.task_gid as string, k]));
   // Offene und neue Fahrzeuge zuerst, beim ersten Mal kommt der Rest über die nächsten Abrufe.

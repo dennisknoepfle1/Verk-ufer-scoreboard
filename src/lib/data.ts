@@ -278,3 +278,11 @@ export async function fetchLeadTimes() {
     status: (status.data as { tasks: number; checked: number } | null) ?? { tasks: 0, checked: 0 },
   };
 }
+
+/** Ausgelieferte Fahrzeuge (Wechsel aus „Auslieferung“ in die nächste Spalte) in diesem und im Vormonat (Admin). */
+export async function fetchDelivered() {
+  const { data, error } = await supabase.rpc('delivered_months');
+  if (error) throw error;
+  const rows = (data ?? []) as { month: string; vehicles: number }[];
+  return { now: rows[0]?.vehicles ?? 0, prev: rows[1]?.vehicles ?? 0 };
+}

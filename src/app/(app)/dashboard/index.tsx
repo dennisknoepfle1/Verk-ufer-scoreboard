@@ -7,13 +7,16 @@ import { Logo, ui } from '@/components/ui';
 import { useAutoUpdate } from '@/lib/auto-update';
 import { useAuth } from '@/lib/auth';
 import { layoutCars } from '@/lib/autohaus-layout';
-import { fetchBuyers, fetchDeliveries, fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchBuyers, fetchDelivered, fetchDeliveries, fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
 import { pipelineSummary, stationCounts, STATIONS } from '@/lib/deliveries';
 import { eur, monthLabel, monthStart, shiftMonth } from '@/lib/format';
 import { pct, summarize, type StatSale } from '@/lib/stats';
 
 // Dunkler Prusseit-Look wie die Büro-Anzeige.
 const tv = { bg: '#121214', panel: 'rgba(30,30,32,0.92)', row: '#29292b', fg: '#f5f5f5', muted: '#9a9ea3', accent: '#e30614', track: '#38393b', good: '#5cc98f', gold: '#f2c94c', warn: '#ff8a65' };
+
+// Zeilenhöhe der großen Zahl fest, damit die Kachelreihe (und damit das 3D-Modell) immer gleich hoch bleibt.
+const VALUE_LINE = 41.6;
 
 const tage = (n: number | null | undefined) => (n == null ? '–' : `${Math.round(Number(n))}`);
 const shortMonth = (m: string) => new Date(`${m}T12:00:00`).toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
@@ -43,6 +46,7 @@ export default function Dashboard() {
   const { data: team } = useLive(() => fetchTeamProgress(month).catch(() => null), [month]);
   const { data: buyers } = useLive(fetchBuyers, []);
   const { data: lead } = useLive(() => fetchLeadTimes().catch(() => null), []);
+  const { data: delivered } = useLive(() => fetchDelivered().catch(() => null), [month]);
   const { data: extras } = useLive(async () => {
     const prevMonth = shiftMonth(month, -1);
     const sales = await fetchSales(prevMonth, shiftMonth(month, 1)).catch(() => null);
@@ -94,7 +98,7 @@ export default function Dashboard() {
       <Text style={[styles.label, { fontSize: f(13) }]} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={[styles.big, { fontSize: f(34), color }]} numberOfLines={1} adjustsFontSizeToFit>
+      <Text style={[styles.big, { fontSize: f(Math.min(30, 250 / Math.max(1, value.length))), lineHeight: VALUE_LINE * s, color }]} numberOfLines={1}>
         {value}
       </Text>
       {sub ? (
@@ -122,15 +126,16 @@ export default function Dashboard() {
 
       <View style={[styles.row, { gap: f(12) }]}>
         <Tile
-          label="CASHFLOW IM ZULAUF"
+          label="CASHFLOW"
           value={pipe ? eur(pipe.euro) : '–'}
-          sub={pipe ? `${pipe.total} Fahrzeuge${pipe.missing ? ` · ${pipe.missing} ohne Preis/Art` : ''}` : 'Asana nicht erreichbar'}
+          sub={pipe ? `${pipe.total} Fzg.${pipe.missing ? ` · ${pipe.missing} ohne Preis/Art` : ' im Zulauf'}` : 'Asana nicht erreichbar'}
           color={tv.gold}
         />
-        <Tile label={`VERKAUFT ${monthLabel(month).toUpperCase()}`} value={teamText} sub={teamPct != null ? `${teamPct} % vom Teamziel` : 'Fahrzeuge'} color={teamPct != null && teamPct >= 100 ? tv.good : tv.fg} />
-        <Tile label="EINGEKAUFT IM MONAT" value={buyers ? `${bought}` : '–'} sub={topBuyer ? `Vorne: ${topBuyer.buyer} (${topBuyer.vehicles})` : 'Fahrzeuge laut Asana'} />
-        <Tile label="Ø STANDZEIT IM MONAT" value={thisMonth ? `${tage(thisMonth.avg_days)} Tage` : '–'} sub={thisMonth ? `Median ${tage(thisMonth.median_days)} · ${thisMonth.vehicles} ausgeliefert` : 'Eingang bis Auslieferung'} />
-        <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} Tage · ${longCount} über 60 Tage` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
+        <Tile label="VERKAUFT" value={teamText} sub={teamPct != null ? `${teamPct} % vom Teamziel` : 'Fahrzeuge'} color={teamPct != null && teamPct >= 100 ? tv.good : tv.fg} />
+        <Tile label="EINGEKAUFT" value={buyers ? `${bought}` : '–'} sub={topBuyer ? `Vorne: ${topBuyer.buyer.split(' ')[0]} (${topBuyer.vehicles})` : 'Fahrzeuge laut Asana'} />
+        <Tile label="Ø STANDZEIT" value={thisMonth ? `${tage(thisMonth.avg_days)} Tage` : '–'} sub={thisMonth ? `Median ${tage(thisMonth.median_days)} · ${thisMonth.vehicles} Fzg.` : 'Eingang bis Auslieferung'} />
+        <Tile label="AUSGELIEFERT" value={delivered ? `${delivered.now}` : '–'} sub={delivered ? `Vormonat ${delivered.prev}` : 'aus Spalte Auslieferung'} color={tv.good} />
+        <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} T. · ${longCount} über 60 T.` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
       </View>
 
       <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(12) }]}>

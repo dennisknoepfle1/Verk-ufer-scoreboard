@@ -92,26 +92,45 @@ export function monthStartIso(now: Date): string {
 
 // ---- Standzeit: vom Eingang (Spalte „FZG.-Administration“) bis ausgeliefert ----
 
-type Story = { created_at?: string; resource_subtype?: string; new_section?: { name?: string } | null };
+type Story = { created_at?: string; resource_subtype?: string; new_section?: { name?: string } | null; old_section?: { name?: string } | null };
 
 const isEingang = (section: string) => section.toLowerCase().includes('administration');
+const isAuslieferung = (section: string) => /^\s*auslieferung\s*$/i.test(section);
 /** Ausgeliefert = in „Auszahlung/ Prüfung“ (oder, falls übersprungen, „Buchhaltung“ / „Abgeschlossen“). */
 export const isAusgeliefert = (section: string) => /auszahlung|prüfung|pruefung|buchhaltung|abgeschlossen/i.test(section);
 
-/** Erster Eingang und erste Auslieferung danach aus dem Verlauf einer Aufgabe (Spaltenwechsel). */
-export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null } {
+/**
+ * Erster Eingang und erste Auslieferung danach aus dem Verlauf einer Aufgabe (Spaltenwechsel) für die Standzeit.
+ * delivered_at (für „ausgeliefert im Monat“, Wunsch Dennis): erster Wechsel aus „Auslieferung“ in die nächste Spalte
+ * (Auszahlung/Prüfung, sonst Buchhaltung/Abgeschlossen), auch ohne Eingang über die Administration.
+ */
+export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null; delivered_at: string | null; delivered_checked: true } {
   const moves = stories
     .filter((s) => s.resource_subtype === 'section_changed' && s.created_at && s.new_section?.name)
     .sort((a, b) => a.created_at!.localeCompare(b.created_at!));
+  let delivered_at: string | null = null;
+  let current = '';
+  for (const s of moves) {
+    const from = s.old_section?.name ?? current;
+    if (!delivered_at && isAuslieferung(from) && isAusgeliefert(s.new_section!.name!)) delivered_at = s.created_at!;
+    current = s.new_section!.name!;
+  }
   const eingang = moves.find((s) => isEingang(s.new_section!.name!));
-  if (!eingang) return { eingang_at: null, ausgeliefert_at: null };
+  if (!eingang) return { eingang_at: null, ausgeliefert_at: null, delivered_at, delivered_checked: true };
   const raus = moves.find((s) => s.created_at! > eingang.created_at! && isAusgeliefert(s.new_section!.name!));
-  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null };
+  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null, delivered_at, delivered_checked: true };
 }
 
-/** Verlauf neu lesen? Nur wenn noch nie gelesen oder die Spalte sich seitdem geändert hat (und noch nicht ausgeliefert). */
-export function needsLeadTime(row: { section: string }, known: { section_seen: string; ausgeliefert_at: string | null } | undefined) {
+/**
+ * Verlauf neu lesen? Wenn noch nie gelesen, noch ohne Auslieferdatum ausgewertet (delivered_checked, einmalig nachholen)
+ * oder die Spalte sich seitdem geändert hat (und noch nicht ausgeliefert).
+ */
+export function needsLeadTime(
+  row: { section: string },
+  known: { section_seen: string; ausgeliefert_at: string | null; delivered_checked?: boolean } | undefined,
+) {
   if (!known) return true;
+  if (known.delivered_checked === false) return true;
   if (known.ausgeliefert_at) return false;
   return known.section_seen !== row.section;
 }
