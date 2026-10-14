@@ -137,17 +137,7 @@ export default function Dashboard() {
         <Tile
           label="AUSGELIEFERT"
           value={delivered ? `${delivered.now}` : '–'}
-          sub={
-            delivered ? (
-              <>
-                Vorm. {delivered.prev}
-                {/* am Prozess vorbei: nicht über die Spalte „Auslieferung“ */}
-                {delivered.nowSkipped ? <Text style={{ color: tv.warn, fontWeight: '700' }}>{` · ⚠ ${delivered.nowSkipped} vorbei`}</Text> : null}
-              </>
-            ) : (
-              'Fahrzeuge laut Asana'
-            )
-          }
+          sub={delivered ? `Vormonat ${delivered.prev}` : 'Fahrzeuge laut Asana'}
           color={tv.good}
         />
         <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} T. · ${longCount} über 60 T.` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
