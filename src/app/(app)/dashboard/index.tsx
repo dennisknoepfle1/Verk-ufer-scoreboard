@@ -189,62 +189,49 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* rechts: Zusatzgeschäft im Monat (gleiche Rechnung wie Admin > Statistik) */}
-        <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(8) }]} {...ui('tv-row')}>
+        {/* rechts: Zusatzgeschäft im Monat (gleiche Rechnung wie Admin > Statistik); die Zeilen teilen sich die Höhe gleichmäßig */}
+        <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(6) }]} {...ui('tv-row')}>
           <View style={styles.between}>
             <Text style={[styles.panelTitle, { fontSize: f(14) }]}>ZUSATZGESCHÄFT</Text>
             <Text style={[styles.muted, { fontSize: f(12) }]}>{extras ? `${extras.now.vehicles} Verkäufe` : ''}</Text>
           </View>
-          {(
-            [
-              ['Winterräder', 'winterRate', 'winterRevenue'],
-              ['Zulassung', 'registrationRate', 'registrationRevenue'],
-              ['Finanzierung', 'financedRate', null],
-            ] as const
-          ).map(([label, key, revenueKey]) => {
-            const r = extras?.now[key] ?? null;
-            const prev = extras?.prev[key] ?? null;
-            const n = r == null || !extras ? null : Math.round(r * extras.now.vehicles);
-            return (
-              <View key={key} style={[styles.listRow, { flexDirection: 'column', alignItems: 'stretch', paddingVertical: f(6), paddingHorizontal: f(10), gap: f(3), borderRadius: f(8) }]}>
-                <View style={styles.between}>
-                  <Text style={[styles.fg, { fontSize: f(15), flexShrink: 1 }]} numberOfLines={1}>
-                    {label}
-                    {/* Umsatz im Monat (Summe der eingetragenen Verkaufspreise) */}
-                    {revenueKey && extras ? <Text style={{ fontWeight: '700', color: tv.gold }}>{`  ${eur(extras.now[revenueKey])}`}</Text> : null}
-                  </Text>
-                  <Text style={[styles.big, { fontSize: f(24), lineHeight: f(26), color: tv.fg }]}>{pct(r)}</Text>
-                </View>
-                <View style={[styles.track, { height: f(8) }]}>
-                  <View style={[styles.fill, { width: `${(r ?? 0) * 100}%` }]} {...ui('tv-fill')} />
-                </View>
-                <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>
-                  {n == null ? 'Noch keine Verkäufe' : `${n} von ${extras!.now.vehicles}`} · Vormonat {pct(prev)}
-                </Text>
-              </View>
-            );
-          })}
           {(() => {
-            // Ø Bankprovision je Verkauf: Balken im Vergleich zum Vormonat (der höhere Wert füllt den Balken).
-            const now = extras?.now.avgBankCommission ?? null;
-            const prev = extras?.prev.avgBankCommission ?? null;
-            const top = Math.max(now ?? 0, prev ?? 0);
-            const diff = now != null && prev ? Math.round(((now - prev) / prev) * 100) : null;
-            return (
-              <View style={[styles.listRow, { flexDirection: 'column', alignItems: 'stretch', paddingVertical: f(6), paddingHorizontal: f(10), gap: f(3), borderRadius: f(8) }]}>
-                <View style={styles.between}>
-                  <Text style={[styles.fg, { fontSize: f(15) }]}>Ø Bankprovision</Text>
-                  <Text style={[styles.big, { fontSize: f(now != null && now >= 10000 ? 21 : 24), lineHeight: f(26), color: tv.fg }]}>{now == null ? '–' : eur(now)}</Text>
+            const n = extras?.now.vehicles ?? 0;
+            const rate = (key: 'winterRate' | 'registrationRate' | 'financedRate') => {
+              const r = extras?.now[key] ?? null;
+              return { value: pct(r), fill: r ?? 0, sub: `${r == null || !extras ? 'Noch keine Verkäufe' : `${Math.round(r * n)} von ${n}`} · Vormonat ${pct(extras?.prev[key] ?? null)}` };
+            };
+            // Euro-Werte: Balken im Vergleich zum Vormonat (der höhere Monat füllt den Balken).
+            const money = (now: number | null, prev: number | null, what: string) => {
+              const top = Math.max(now ?? 0, prev ?? 0);
+              return {
+                value: now == null ? '–' : eur(now),
+                fill: top ? (now ?? 0) / top : 0,
+                sub: `${what ? `${what} · ` : ''}Vormonat ${prev == null ? '–' : eur(prev)}`,
+              };
+            };
+            const rows = [
+              { label: 'Winterräder', ...rate('winterRate') },
+              { label: 'Zulassung', ...rate('registrationRate') },
+              { label: 'Finanzierung', ...rate('financedRate') },
+              { label: 'Umsatz Winterräder', key: 'wr€', ...money(extras ? extras.now.winterRevenue : null, extras ? extras.prev.winterRevenue : null, '') },
+              { label: 'Umsatz Zulassung', key: 'zl€', ...money(extras ? extras.now.registrationRevenue : null, extras ? extras.prev.registrationRevenue : null, '') },
+              { label: 'Ø Bankprovision', ...money(extras?.now.avgBankCommission ?? null, extras?.prev.avgBankCommission ?? null, 'je Verkauf') },
+            ];
+            return rows.map((row) => (
+              <View key={'key' in row ? row.key : row.label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(3), paddingHorizontal: f(10), gap: f(3), borderRadius: f(8) }]}>
+                <View style={[styles.between, { alignItems: 'center', gap: f(6) }]}>
+                  <View style={{ flexShrink: 1, minWidth: 0 }}>
+                    <Text style={[styles.fg, { fontSize: f(14), lineHeight: f(17) }]} numberOfLines={1}>{row.label}</Text>
+                    <Text style={[styles.muted, { fontSize: f(10.5), lineHeight: f(13) }]} numberOfLines={1}>{row.sub}</Text>
+                  </View>
+                  <Text style={[styles.big, { fontSize: f(row.value.length > 8 ? 17 : row.value.length > 6 ? 19 : 22), lineHeight: f(26), color: tv.fg }]}>{row.value}</Text>
                 </View>
-                <View style={[styles.track, { height: f(8) }]}>
-                  <View style={[styles.fill, { width: `${top ? ((now ?? 0) / top) * 100 : 0}%` }]} {...ui('tv-fill')} />
+                <View style={[styles.track, { height: f(6) }]}>
+                  <View style={[styles.fill, { width: `${Math.min(1, row.fill) * 100}%` }]} {...ui('tv-fill')} />
                 </View>
-                <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>
-                  je Verkauf · Vormonat {prev == null ? '–' : eur(prev)}
-                  {diff == null ? '' : ` (${diff > 0 ? '+' : ''}${diff} %)`}
-                </Text>
               </View>
-            );
+            ));
           })()}
         </View>
       </View>
