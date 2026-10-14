@@ -19,6 +19,8 @@ export type Summary = {
   registrationRate: number | null; // Anteil der Verkäufe mit Zulassung, 0..1
   financedRate: number | null; // Anteil der Verkäufe mit Bankprovision > 0
   avgBankCommission: number | null; // Ø Bankprovision je Verkauf
+  winterRevenue: number; // Summe Verkaufspreise Winterräder
+  registrationRevenue: number; // Summe Verkaufspreise Zulassung
   commission: number;
   avgRating: number | null; // Ø Kundenbewertung (1–5) der bewerteten Verkäufe
   ratingCount: number;
@@ -57,6 +59,8 @@ export function summarize(sales: StatSale[]): Summary {
     registrationRate: share((s) => s.registration_price > 0),
     financedRate: share((s) => s.bank_commission > 0),
     avgBankCommission: n ? sales.reduce((a, s) => a + s.bank_commission, 0) / n : null,
+    winterRevenue: sales.reduce((a, s) => a + s.winter_wheels_price, 0),
+    registrationRevenue: sales.reduce((a, s) => a + s.registration_price, 0),
     commission: sales.reduce((a, s) => a + s.commission, 0),
     avgRating: rated.length ? rated.reduce((a, s) => a + (s.customer_rating ?? 0), 0) / rated.length : null,
     ratingCount: rated.length,

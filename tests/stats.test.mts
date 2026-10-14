@@ -31,6 +31,8 @@ test('Quoten und Ø Bankprovision', () => {
   assert.equal(sum.registrationRate, 0.5);
   assert.equal(sum.financedRate, 0.75);
   assert.equal(sum.avgBankCommission, 325);
+  assert.equal(sum.winterRevenue, 1600);
+  assert.equal(sum.registrationRevenue, 330);
   assert.equal(summarize([]).avgBankCommission, null);
   assert.equal(pct(null), '–');
   assert.equal(pct(0.666), '67 %');

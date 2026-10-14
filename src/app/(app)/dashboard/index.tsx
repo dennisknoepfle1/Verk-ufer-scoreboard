@@ -197,18 +197,22 @@ export default function Dashboard() {
           </View>
           {(
             [
-              ['Winterräder', 'winterRate'],
-              ['Zulassung', 'registrationRate'],
-              ['Finanzierung', 'financedRate'],
+              ['Winterräder', 'winterRate', 'winterRevenue'],
+              ['Zulassung', 'registrationRate', 'registrationRevenue'],
+              ['Finanzierung', 'financedRate', null],
             ] as const
-          ).map(([label, key]) => {
+          ).map(([label, key, revenueKey]) => {
             const r = extras?.now[key] ?? null;
             const prev = extras?.prev[key] ?? null;
             const n = r == null || !extras ? null : Math.round(r * extras.now.vehicles);
             return (
               <View key={key} style={[styles.listRow, { flexDirection: 'column', alignItems: 'stretch', paddingVertical: f(6), paddingHorizontal: f(10), gap: f(3), borderRadius: f(8) }]}>
                 <View style={styles.between}>
-                  <Text style={[styles.fg, { fontSize: f(15) }]}>{label}</Text>
+                  <Text style={[styles.fg, { fontSize: f(15), flexShrink: 1 }]} numberOfLines={1}>
+                    {label}
+                    {/* Umsatz im Monat (Summe der eingetragenen Verkaufspreise) */}
+                    {revenueKey && extras ? <Text style={{ fontWeight: '700', color: tv.gold }}>{`  ${eur(extras.now[revenueKey])}`}</Text> : null}
+                  </Text>
                   <Text style={[styles.big, { fontSize: f(24), lineHeight: f(26), color: tv.fg }]}>{pct(r)}</Text>
                 </View>
                 <View style={[styles.track, { height: f(8) }]}>
