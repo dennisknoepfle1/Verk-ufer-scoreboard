@@ -98,12 +98,15 @@ test('Standzeit: erster Eingang in Administration bis erste Auslieferung danach'
     mv('2026-10-07T10:13:00Z', 'Auszahlung/ Prüfung'),
     mv('2026-10-08T10:13:00Z', 'Buchhaltung'),
   ];
-  assert.deepEqual(leadTimeOf(st), { eingang_at: '2026-09-23T08:23:00Z', ausgeliefert_at: '2026-10-07T10:13:00Z', delivered_at: '2026-10-07T10:13:00Z', delivered_skip: true, delivered_checked: true });
-  assert.deepEqual(leadTimeOf([mv('2026-09-21T09:49:00Z', 'FZG.-Disposition/ Werkstatt'), mv('2026-10-07T07:34:00Z', 'Auszahlung/ Prüfung')]), { eingang_at: null, ausgeliefert_at: null, delivered_at: '2026-10-07T07:34:00Z', delivered_skip: true, delivered_checked: true });
+  assert.deepEqual(leadTimeOf(st), { eingang_at: '2026-09-23T08:23:00Z', ausgeliefert_at: '2026-10-07T10:13:00Z', delivered_at: '2026-10-07T10:13:00Z', delivered_from: 'FZG.-Administration', delivered_skip: true, delivered_checked: true });
+  assert.deepEqual(leadTimeOf([mv('2026-09-21T09:49:00Z', 'FZG.-Disposition/ Werkstatt'), mv('2026-10-07T07:34:00Z', 'Auszahlung/ Prüfung')]), { eingang_at: null, ausgeliefert_at: null, delivered_at: '2026-10-07T07:34:00Z', delivered_from: 'FZG.-Disposition/ Werkstatt', delivered_skip: true, delivered_checked: true });
   // ausgeliefert = erster Wechsel in Auszahlung/Buchhaltung; aus „Auslieferung“ = regulär, sonst am Prozess vorbei
   const raus = [mv('2026-10-01T08:00:00Z', 'FZG.- Fertig'), mv('2026-10-02T08:00:00Z', 'Auslieferung'), mv('2026-10-03T08:00:00Z', 'FZG.- Fertig'), mv('2026-10-04T08:00:00Z', 'Auslieferung'), mv('2026-10-06T08:00:00Z', 'Auszahlung/ Prüfung'), mv('2026-10-07T08:00:00Z', 'Buchhaltung')];
   assert.equal(leadTimeOf(raus).delivered_at, '2026-10-06T08:00:00Z');
   assert.equal(leadTimeOf(raus).delivered_skip, false);
+  // Fehlklick: kurz in Buchhaltung und sofort zurück zählt nicht, die echte Auslieferung danach schon
+  const klick = [mv('2026-10-01T11:16:00Z', 'Buchhaltung'), mv('2026-10-01T11:16:30Z', 'FZG.- Fertig'), mv('2026-10-01T12:30:00Z', 'Auslieferung'), mv('2026-10-02T17:46:00Z', 'Auszahlung/ Prüfung')];
+  assert.deepEqual([leadTimeOf(klick).delivered_at, leadTimeOf(klick).delivered_from], ['2026-10-02T17:46:00Z', 'Auslieferung']);
   assert.equal(leadTimeOf([{ ...mv('2026-10-06T08:00:00Z', 'Buchhaltung'), old_section: { name: 'Auslieferung' } }]).delivered_at, '2026-10-06T08:00:00Z', 'alte Spalte direkt aus Asana');
   assert.equal(leadTimeOf([mv('2026-09-21T09:51:00Z', 'FZG.-Administration'), mv('2026-10-09T14:43:00Z', 'Buchhaltung')]).ausgeliefert_at, '2026-10-09T14:43:00Z');
   assert.equal(leadTimeOf([mv('2026-09-21T09:51:00Z', 'FZG.-Administration')]).ausgeliefert_at, null);

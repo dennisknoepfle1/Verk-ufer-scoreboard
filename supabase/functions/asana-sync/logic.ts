@@ -102,29 +102,35 @@ export const isAusgeliefert = (section: string) => /auszahlung|prüfung|pruefung
 /**
  * Erster Eingang und erste Auslieferung danach aus dem Verlauf einer Aufgabe (Spaltenwechsel) für die Standzeit.
  * delivered_at (für „ausgeliefert im Monat“, Wunsch Dennis): erster Wechsel in Auszahlung/Prüfung (sonst Buchhaltung/
- * Abgeschlossen), auch ohne Eingang über die Administration. delivered_skip: dabei kam das Fahrzeug nicht aus „Auslieferung“,
- * jemand hat also am Prozess vorbei gearbeitet (zählt trotzdem, wird aber getrennt ausgewiesen).
+ * Abgeschlossen), auch ohne Eingang über die Administration. delivered_from: aus welcher Spalte (für die Zählung:
+ * Auslieferung, sonst Fertig/Werkstatt; direkt aus dem Bestand ist keine Auslieferung, z. B. Händlerverkauf).
+ * Fehlklicks zählen nicht: Wird das Fahrzeug innerhalb von 10 Minuten wieder aus der Endspalte zurückgeschoben, gilt
+ * dieser Wechsel nicht. delivered_skip: nicht aus „Auslieferung“ gekommen.
  */
-export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null; delivered_at: string | null; delivered_skip: boolean; delivered_checked: true } {
+export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null; delivered_at: string | null; delivered_from: string | null; delivered_skip: boolean; delivered_checked: true } {
   const moves = stories
     .filter((s) => s.resource_subtype === 'section_changed' && s.created_at && s.new_section?.name)
     .sort((a, b) => a.created_at!.localeCompare(b.created_at!));
   let delivered_at: string | null = null;
-  let delivered_skip = false;
+  let delivered_from: string | null = null;
   let current = '';
-  for (const s of moves) {
+  for (let i = 0; i < moves.length; i++) {
+    const s = moves[i];
     const from = s.old_section?.name ?? current;
-    if (!isAusgeliefert(from) && isAusgeliefert(s.new_section!.name!)) {
-      delivered_at = s.created_at!;
-      delivered_skip = !isAuslieferung(from);
-      break;
-    }
     current = s.new_section!.name!;
+    if (isAusgeliefert(from) || !isAusgeliefert(current)) continue;
+    const next = moves[i + 1];
+    const misclick = next && !isAusgeliefert(next.new_section!.name!) && Date.parse(next.created_at!) - Date.parse(s.created_at!) < 10 * 60_000;
+    if (misclick) continue;
+    delivered_at = s.created_at!;
+    delivered_from = from || null;
+    break;
   }
+  const delivered_skip = delivered_at != null && !isAuslieferung(delivered_from ?? '');
   const eingang = moves.find((s) => isEingang(s.new_section!.name!));
-  if (!eingang) return { eingang_at: null, ausgeliefert_at: null, delivered_at, delivered_skip, delivered_checked: true };
+  if (!eingang) return { eingang_at: null, ausgeliefert_at: null, delivered_at, delivered_from, delivered_skip, delivered_checked: true };
   const raus = moves.find((s) => s.created_at! > eingang.created_at! && isAusgeliefert(s.new_section!.name!));
-  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null, delivered_at, delivered_skip, delivered_checked: true };
+  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null, delivered_at, delivered_from, delivered_skip, delivered_checked: true };
 }
 
 /**

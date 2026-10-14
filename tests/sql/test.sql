@@ -302,13 +302,14 @@ do $$ begin
 end $$;
 reset role;
 -- Ausgeliefert im Monat: auch ohne Eingang über die Administration, ohne Stornos
-update public.asana_lead_times set delivered_at = now() where task_gid in ('b6', 'b4');
-update public.asana_lead_times set delivered_at = now(), delivered_skip = true where task_gid = 'b1';
-update public.asana_lead_times set delivered_at = date_trunc('month', now() at time zone 'Europe/Berlin') at time zone 'Europe/Berlin' - interval '10 days' where task_gid = 'b3';
+update public.asana_lead_times set delivered_at = now(), delivered_from = 'Auslieferung' where task_gid in ('b6', 'b4');
+update public.asana_lead_times set delivered_at = now(), delivered_skip = true, delivered_from = 'FZG.- Fertig' where task_gid = 'b1';
+update public.asana_lead_times set delivered_at = now(), delivered_skip = true, delivered_from = 'FZG.-Verkauf (Bestand)' where task_gid = 'b2';
+update public.asana_lead_times set delivered_from = 'Auslieferung', delivered_at = date_trunc('month', now() at time zone 'Europe/Berlin') at time zone 'Europe/Berlin' - interval '10 days' where task_gid = 'b3';
 set role authenticated;
 do $$ begin
   assert (select count(*) from delivered_months()) = 2, 'dieser und Vormonat';
-  assert (select vehicles from delivered_summary() order by month desc limit 1) = 2, 'ohne Eingang zählt, übersprungen zählt, Storno nicht';
+  assert (select vehicles from delivered_summary() order by month desc limit 1) = 2, 'ohne Eingang zählt, aus Fertig zählt, aus Bestand und Storno nicht';
   assert (select skipped from delivered_summary() order by month desc limit 1) = 1, 'am Prozess vorbei';
   assert (select vehicles from delivered_summary() order by month limit 1) = 1, 'Vormonat';
 end $$;
