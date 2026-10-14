@@ -279,10 +279,13 @@ export async function fetchLeadTimes() {
   };
 }
 
-/** Ausgelieferte Fahrzeuge (Wechsel aus „Auslieferung“ in die nächste Spalte) in diesem und im Vormonat (Admin). */
+/**
+ * Ausgelieferte Fahrzeuge (erster Wechsel in Auszahlung/Prüfung bzw. Buchhaltung) in diesem und im Vormonat (Admin).
+ * skipped: davon nicht über die Spalte „Auslieferung“, also am Prozess vorbei.
+ */
 export async function fetchDelivered() {
-  const { data, error } = await supabase.rpc('delivered_months');
+  const { data, error } = await supabase.rpc('delivered_summary');
   if (error) throw error;
-  const rows = (data ?? []) as { month: string; vehicles: number }[];
-  return { now: rows[0]?.vehicles ?? 0, prev: rows[1]?.vehicles ?? 0 };
+  const rows = (data ?? []) as { month: string; vehicles: number; skipped: number }[];
+  return { now: rows[0]?.vehicles ?? 0, nowSkipped: rows[0]?.skipped ?? 0, prev: rows[1]?.vehicles ?? 0, prevSkipped: rows[1]?.skipped ?? 0 };
 }

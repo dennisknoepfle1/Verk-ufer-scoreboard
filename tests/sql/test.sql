@@ -303,19 +303,21 @@ end $$;
 reset role;
 -- Ausgeliefert im Monat: auch ohne Eingang über die Administration, ohne Stornos
 update public.asana_lead_times set delivered_at = now() where task_gid in ('b6', 'b4');
+update public.asana_lead_times set delivered_at = now(), delivered_skip = true where task_gid = 'b1';
 update public.asana_lead_times set delivered_at = date_trunc('month', now() at time zone 'Europe/Berlin') at time zone 'Europe/Berlin' - interval '10 days' where task_gid = 'b3';
 set role authenticated;
 do $$ begin
   assert (select count(*) from delivered_months()) = 2, 'dieser und Vormonat';
-  assert (select vehicles from delivered_months() order by month desc limit 1) = 1, 'ohne Eingang zählt, Storno nicht';
-  assert (select vehicles from delivered_months() order by month limit 1) = 1, 'Vormonat';
+  assert (select vehicles from delivered_summary() order by month desc limit 1) = 2, 'ohne Eingang zählt, übersprungen zählt, Storno nicht';
+  assert (select skipped from delivered_summary() order by month desc limit 1) = 1, 'am Prozess vorbei';
+  assert (select vehicles from delivered_summary() order by month limit 1) = 1, 'Vormonat';
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
 set role authenticated;
 do $$ begin
   assert (select count(*) from lead_time_months()) = 0, 'Verkäufer sieht keine Standzeiten';
-  assert (select sum(vehicles) from delivered_months()) = 0, 'Verkäufer sieht keine Auslieferungen';
+  assert (select sum(vehicles) from delivered_summary()) = 0, 'Verkäufer sieht keine Auslieferungen';
 end $$;
 reset role;
 select 'ALLE SQL-TESTS OK' as result;

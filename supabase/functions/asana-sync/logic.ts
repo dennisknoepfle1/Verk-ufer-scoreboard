@@ -101,24 +101,30 @@ export const isAusgeliefert = (section: string) => /auszahlung|prüfung|pruefung
 
 /**
  * Erster Eingang und erste Auslieferung danach aus dem Verlauf einer Aufgabe (Spaltenwechsel) für die Standzeit.
- * delivered_at (für „ausgeliefert im Monat“, Wunsch Dennis): erster Wechsel aus „Auslieferung“ in die nächste Spalte
- * (Auszahlung/Prüfung, sonst Buchhaltung/Abgeschlossen), auch ohne Eingang über die Administration.
+ * delivered_at (für „ausgeliefert im Monat“, Wunsch Dennis): erster Wechsel in Auszahlung/Prüfung (sonst Buchhaltung/
+ * Abgeschlossen), auch ohne Eingang über die Administration. delivered_skip: dabei kam das Fahrzeug nicht aus „Auslieferung“,
+ * jemand hat also am Prozess vorbei gearbeitet (zählt trotzdem, wird aber getrennt ausgewiesen).
  */
-export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null; delivered_at: string | null; delivered_checked: true } {
+export function leadTimeOf(stories: Story[]): { eingang_at: string | null; ausgeliefert_at: string | null; delivered_at: string | null; delivered_skip: boolean; delivered_checked: true } {
   const moves = stories
     .filter((s) => s.resource_subtype === 'section_changed' && s.created_at && s.new_section?.name)
     .sort((a, b) => a.created_at!.localeCompare(b.created_at!));
   let delivered_at: string | null = null;
+  let delivered_skip = false;
   let current = '';
   for (const s of moves) {
     const from = s.old_section?.name ?? current;
-    if (!delivered_at && isAuslieferung(from) && isAusgeliefert(s.new_section!.name!)) delivered_at = s.created_at!;
+    if (!isAusgeliefert(from) && isAusgeliefert(s.new_section!.name!)) {
+      delivered_at = s.created_at!;
+      delivered_skip = !isAuslieferung(from);
+      break;
+    }
     current = s.new_section!.name!;
   }
   const eingang = moves.find((s) => isEingang(s.new_section!.name!));
-  if (!eingang) return { eingang_at: null, ausgeliefert_at: null, delivered_at, delivered_checked: true };
+  if (!eingang) return { eingang_at: null, ausgeliefert_at: null, delivered_at, delivered_skip, delivered_checked: true };
   const raus = moves.find((s) => s.created_at! > eingang.created_at! && isAusgeliefert(s.new_section!.name!));
-  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null, delivered_at, delivered_checked: true };
+  return { eingang_at: eingang.created_at!, ausgeliefert_at: raus?.created_at ?? null, delivered_at, delivered_skip, delivered_checked: true };
 }
 
 /**

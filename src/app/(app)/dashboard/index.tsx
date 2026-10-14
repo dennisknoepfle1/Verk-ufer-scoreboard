@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Autohaus3D, type Facade } from '@/components/Autohaus3D';
@@ -93,7 +93,7 @@ export default function Dashboard() {
   };
 
   const f = (n: number) => n * s;
-  const Tile = ({ label, value, sub, color = tv.fg }: { label: string; value: string; sub?: string; color?: string }) => (
+  const Tile = ({ label, value, sub, color = tv.fg }: { label: string; value: string; sub?: ReactNode; color?: string }) => (
     <View style={[styles.tile, { paddingVertical: f(10), paddingHorizontal: f(14), gap: f(2) }]} {...ui('tv-row')}>
       <Text style={[styles.label, { fontSize: f(13) }]} numberOfLines={1}>
         {label}
@@ -134,7 +134,22 @@ export default function Dashboard() {
         <Tile label="VERKAUFT" value={teamText} sub={teamPct != null ? `${teamPct} % vom Teamziel` : 'Fahrzeuge'} color={teamPct != null && teamPct >= 100 ? tv.good : tv.fg} />
         <Tile label="EINGEKAUFT" value={buyers ? `${bought}` : '–'} sub={topBuyer ? `Vorne: ${topBuyer.buyer.split(' ')[0]} (${topBuyer.vehicles})` : 'Fahrzeuge laut Asana'} />
         <Tile label="Ø STANDZEIT" value={thisMonth ? `${tage(thisMonth.avg_days)} Tage` : '–'} sub={thisMonth ? `Median ${tage(thisMonth.median_days)} · ${thisMonth.vehicles} Fzg.` : 'Eingang bis Auslieferung'} />
-        <Tile label="AUSGELIEFERT" value={delivered ? `${delivered.now}` : '–'} sub={delivered ? `Vormonat ${delivered.prev}` : 'aus Spalte Auslieferung'} color={tv.good} />
+        <Tile
+          label="AUSGELIEFERT"
+          value={delivered ? `${delivered.now}` : '–'}
+          sub={
+            delivered ? (
+              <>
+                Vorm. {delivered.prev}
+                {/* am Prozess vorbei: nicht über die Spalte „Auslieferung“ */}
+                {delivered.nowSkipped ? <Text style={{ color: tv.warn, fontWeight: '700' }}>{` · ⚠ ${delivered.nowSkipped} vorbei`}</Text> : null}
+              </>
+            ) : (
+              'Fahrzeuge laut Asana'
+            )
+          }
+          color={tv.good}
+        />
         <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} T. · ${longCount} über 60 T.` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
       </View>
 
