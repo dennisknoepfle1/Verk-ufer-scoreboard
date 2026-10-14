@@ -309,7 +309,7 @@ update public.asana_lead_times set delivered_from = 'Auslieferung', delivered_at
 set role authenticated;
 do $$ begin
   assert (select count(*) from delivered_months()) = 2, 'dieser und Vormonat';
-  assert (select vehicles from delivered_summary() order by month desc limit 1) = 1, 'nur über Auslieferung (auch ohne Eingang); aus Fertig, Bestand und Storno nicht';
+  assert (select vehicles from delivered_summary() order by month desc limit 1) = 2, 'über Auslieferung oder direkt aus Fertig zählt (auch ohne Eingang); aus Bestand und Storno nicht';
   assert (select vehicles from delivered_summary() order by month limit 1) = 1, 'Vormonat';
 end $$;
 reset role;

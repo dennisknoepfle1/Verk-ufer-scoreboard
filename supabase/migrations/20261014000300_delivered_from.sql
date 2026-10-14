@@ -1,5 +1,5 @@
 -- Ausgeliefert genauer (Dennis fand 43/90 zu viel): Aus welcher Spalte kam das Fahrzeug in die Endspalte?
--- Gezählt wird nur, was aus „Auslieferung“ kam (Dennis 2026-10-14: nur Fahrzeuge über Auslieferung).
+-- Gezählt wird, was aus „Auslieferung“ kam oder, wenn das Ziehen vergessen wurde, direkt aus „Fertig“ bzw. „Disposition/ Werkstatt“ (Dennis 2026-10-14).
 -- Direkt aus dem Bestand (oder früher) ist keine Kundenauslieferung, z. B. Händlerverkauf. Fehlklicks erkennt asana-sync.
 alter table public.asana_lead_times add column delivered_from text;
 
@@ -17,7 +17,7 @@ language sql stable set search_path = '' as $$
     from public.asana_lead_times l
     join public.asana_current() d on d.task_gid = l.task_gid
     where l.delivered_at is not null and d.section not ilike '%storno%'
-      and l.delivered_from ~* '^\s*auslieferung\s*$'
+      and l.delivered_from ~* '(auslieferung|fertig|werkstatt|disposition)'
       and date_trunc('month', l.delivered_at at time zone 'Europe/Berlin')::date = x.month
   ) c on true
   order by x.month desc;
