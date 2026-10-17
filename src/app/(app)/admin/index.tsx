@@ -47,9 +47,9 @@ export default function AdminSales() {
   const withGoal = board.filter((r) => r.target_vehicles);
   const kpis = [
     ['Verkaufte Fahrzeuge', String(sales.length)],
-    // Im laufenden Monat zählt hier nur die Provision von heute (Wunsch Dennis), in früheren Monaten der ganze Monat.
+    // Im laufenden Monat steht hier die Bankprovision von heute (Wunsch Dennis), in früheren Monaten die Provision des Monats.
     month === monthStart()
-      ? ['Provision heute', eur(sales.filter((s) => s.sold_on === todayIso()).reduce((a, s) => a + s.commission, 0))]
+      ? ['Bankprovision heute', eur(sales.filter((s) => s.sold_on === todayIso()).reduce((a, s) => a + s.bank_commission, 0))]
       : ['Provision gesamt', eur(sales.reduce((a, s) => a + s.commission, 0))],
     ['Bankprovision gesamt', eur(sales.reduce((a, s) => a + s.bank_commission, 0))],
     ['Ø Kundenbewertung', stars(avg)],
