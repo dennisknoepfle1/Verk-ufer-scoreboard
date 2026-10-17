@@ -8,7 +8,7 @@ import { AnimatedValue } from '@/components/CountUp';
 import { PushCard } from '@/components/PushCard';
 import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchFeed, fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
-import { dateLabel, eur, monthStart, shiftMonth } from '@/lib/format';
+import { dateLabel, eur, monthStart, shiftMonth, todayIso } from '@/lib/format';
 import { stars, summarize } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 
@@ -47,7 +47,10 @@ export default function AdminSales() {
   const withGoal = board.filter((r) => r.target_vehicles);
   const kpis = [
     ['Verkaufte Fahrzeuge', String(sales.length)],
-    ['Provision gesamt', eur(sales.reduce((a, s) => a + s.commission, 0))],
+    // Im laufenden Monat zählt hier nur die Provision von heute (Wunsch Dennis), in früheren Monaten der ganze Monat.
+    month === monthStart()
+      ? ['Provision heute', eur(sales.filter((s) => s.sold_on === todayIso()).reduce((a, s) => a + s.commission, 0))]
+      : ['Provision gesamt', eur(sales.reduce((a, s) => a + s.commission, 0))],
     ['Bankprovision gesamt', eur(sales.reduce((a, s) => a + s.bank_commission, 0))],
     ['Ø Kundenbewertung', stars(avg)],
     ['Monatsziel erreicht', `${withGoal.filter((r) => r.vehicles >= (r.target_vehicles ?? 0)).length} von ${withGoal.length}`],

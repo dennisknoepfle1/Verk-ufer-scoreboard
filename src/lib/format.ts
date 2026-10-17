@@ -9,6 +9,11 @@ export function monthStart(d = new Date()): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
 }
 
+/** Heutiges Datum als YYYY-MM-DD (Ortszeit), wie sold_on gespeichert wird. */
+export function todayIso(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 export function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split('-').map(Number);
   return monthStart(new Date(y, m - 1 + delta, 1));
