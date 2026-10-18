@@ -5,6 +5,7 @@ import type { BoardRow, Rates } from './scoring';
 import { supabase } from './supabase';
 import { groupBadges, type BadgeKey } from './badges';
 import type { Delivery } from './deliveries';
+import { financeOf } from './finance';
 
 export type Sale = {
   id: number;
@@ -309,4 +310,12 @@ export async function fetchDelivered() {
   if (error) throw error;
   const rows = (data ?? []) as { month: string; vehicles: number; skipped: number }[];
   return { now: rows[0]?.vehicles ?? 0, nowSkipped: rows[0]?.skipped ?? 0, prev: rows[1]?.vehicles ?? 0, prevSkipped: rows[1]?.skipped ?? 0 };
+}
+
+/** Umsatz, Wareneinsatz und Gewinn der ausgelieferten Fahrzeuge (aus Asana) in diesem und im Vormonat (Admin). */
+export async function fetchFinance() {
+  const { data, error } = await supabase.rpc('finance_summary');
+  if (error) throw error;
+  const rows = (data ?? []) as Parameters<typeof financeOf>[0][];
+  return { now: financeOf(rows[0]), prev: financeOf(rows[1]) };
 }

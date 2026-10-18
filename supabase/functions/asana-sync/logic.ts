@@ -57,6 +57,21 @@ export function amountOf(t: AsanaTask): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
 
+const numberField = (t: AsanaTask, test: (name: string) => boolean) => {
+  const v = t.custom_fields?.find((c) => c.type === 'number' && test((c.name ?? '').trim().toLowerCase()))?.number_value;
+  return typeof v === 'number' && Number.isFinite(v) ? v : null;
+};
+
+/** Einkaufspreis: Zahlenfeld „Auszahlung VB / EK“ (nicht das Auswahlfeld „Auszahlung Vorbesitzer festgelegt“). */
+export function purchaseOf(t: AsanaTask): number | null {
+  return numberField(t, (n) => n.startsWith('auszahlung vb') || (n.startsWith('auszahlung') && /\bek\b/.test(n)));
+}
+
+/** Bankprovision des Geschäfts: Zahlenfeld „Bankprovision gesamt“. */
+export function bankCommissionOf(t: AsanaTask): number | null {
+  return numberField(t, (n) => n.startsWith('bankprovision'));
+}
+
 /** Ankaufsart: Feld „Art des Geschäftes“ (Direkter Ankauf, Vermittlung, Inzahlungnahme). */
 export function dealTypeOf(t: AsanaTask): string | null {
   return field(t, (n) => n.startsWith('art des gesch'))?.enum_value?.name?.trim() || null;
@@ -76,6 +91,8 @@ export function toRow(t: AsanaTask, gid: string) {
     created_by: t.created_by?.name?.trim() || null,
     completed: t.completed === true,
     amount: amountOf(t),
+    purchase_price: purchaseOf(t),
+    bank_commission: bankCommissionOf(t),
     deal_type: dealTypeOf(t),
   };
 }

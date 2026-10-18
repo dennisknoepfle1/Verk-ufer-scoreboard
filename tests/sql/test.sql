@@ -313,11 +313,25 @@ do $$ begin
   assert (select vehicles from delivered_summary() order by month limit 1) = 1, 'Vormonat';
 end $$;
 reset role;
+-- Umsatz, Wareneinsatz: Summen der ausgelieferten Fahrzeuge, fehlende Felder werden gezählt
+update public.asana_deliveries set amount = 20000, purchase_price = 15000, bank_commission = 800 where task_gid = 'b6';
+update public.asana_deliveries set amount = 10000, purchase_price = null, bank_commission = 300 where task_gid = 'b1';
+update public.asana_deliveries set amount = 99999, purchase_price = 1, bank_commission = 1 where task_gid = 'b2';
+set role authenticated;
+do $$ begin
+  assert (select vehicles from finance_summary() order by month desc limit 1) = 2, 'gleiche Fahrzeuge wie Ausgeliefert';
+  assert (select sale_total from finance_summary() order by month desc limit 1) = 30000, 'Verkaufspreise';
+  assert (select bank_total from finance_summary() order by month desc limit 1) = 1100, 'Bankprovision';
+  assert (select purchase_total from finance_summary() order by month desc limit 1) = 15000, 'Einkauf';
+  assert (select missing_purchase from finance_summary() order by month desc limit 1) = 1, 'fehlender Einkaufspreis gezählt';
+end $$;
+reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
 set role authenticated;
 do $$ begin
   assert (select count(*) from lead_time_months()) = 0, 'Verkäufer sieht keine Standzeiten';
   assert (select sum(vehicles) from delivered_summary()) = 0, 'Verkäufer sieht keine Auslieferungen';
+  assert (select sum(sale_total) from finance_summary()) = 0, 'Verkäufer sieht keine Umsätze';
 end $$;
 reset role;
 select 'ALLE SQL-TESTS OK' as result;

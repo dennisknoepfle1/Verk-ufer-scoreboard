@@ -2,6 +2,9 @@ const eurFmt = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EU
 const eurFmtCents = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
 
 export const eur = (n: number) => eurFmt.format(n);
+/** Kurz für enge Stellen: ab 1 Mio. „1,99 Mio. €“, sonst wie eur. */
+export const eurShort = (n: number) =>
+  Math.abs(n) >= 1_000_000 ? `${(n / 1_000_000).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Mio. €` : eur(n);
 export const eurCents = (n: number) => eurFmtCents.format(n);
 
 /** Erster Tag des Monats als YYYY-MM-DD, so wie die Datenbank Monate speichert. */

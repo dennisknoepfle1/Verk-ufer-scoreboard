@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { missingInfo, pipelineSummary, stationCounts, STATIONS, type Delivery } from '../src/lib/deliveries.ts';
 import { layoutCars } from '../src/lib/autohaus-layout.ts';
-import { amountOf, dealTypeOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
+import { amountOf, bankCommissionOf, dealTypeOf, purchaseOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
   task_gid: Math.random().toString(), name: 'Auto', section: '', stage, due_on, permalink_url: null,
@@ -142,4 +142,22 @@ test('3D-Autohaus: Fahrzeuge bekommen Stellplätze in ihrer Zone', () => {
   assert.equal(placed.find((p) => p.gid === 's1'), undefined, 'Stornos stehen nicht auf dem Hof');
   // keine zwei Autos auf demselben Platz
   assert.equal(new Set(placed.map((p) => `${p.x.toFixed(1)},${p.z.toFixed(1)}`)).size, placed.length);
+});
+
+test('Einkaufspreis und Bankprovision aus den neuen Asana-Feldern', () => {
+  const t = {
+    gid: '1',
+    custom_fields: [
+      { name: 'Auszahlung Vorbesitzer festgelegt', type: 'enum', enum_value: { name: 'Ja' } },
+      { name: 'Auszahlung VB / EK', type: 'number', number_value: 17500 },
+      { name: 'Bankprovision gesamt', type: 'number', number_value: 1234.5 },
+    ],
+  };
+  assert.equal(purchaseOf(t), 17500);
+  assert.equal(bankCommissionOf(t), 1234.5);
+  assert.equal(purchaseOf({ gid: '2' }), null);
+  assert.equal(bankCommissionOf({ gid: '2', custom_fields: [{ name: 'Bankprovision gesamt', type: 'number', number_value: null }] }), null);
+  const row = toRow(t, 'p');
+  assert.equal(row.purchase_price, 17500);
+  assert.equal(row.bank_commission, 1234.5);
 });

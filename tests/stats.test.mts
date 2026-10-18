@@ -64,3 +64,11 @@ test('Sterne-Anzeige', () => {
   assert.equal(stars(4.5), '★ 4,5');
   assert.equal(stars(4), '★ 4,0');
 });
+
+test('Ergebnis: Umsatz = VK + Bankprovision, Gewinn = Umsatz − Wareneinsatz − 500.000 €', async () => {
+  const { financeOf } = await import('../src/lib/finance.ts');
+  const f = financeOf({ vehicles: 2, sale_total: '30000', bank_total: 1100, purchase_total: 15000, missing_sale: 0, missing_purchase: 1, missing_bank: 0 });
+  assert.equal(f.revenue, 31100);
+  assert.equal(f.profit, 31100 - 15000 - 500000);
+  assert.equal(financeOf(undefined).profit, -500000);
+});

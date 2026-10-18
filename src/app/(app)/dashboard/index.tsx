@@ -7,9 +7,10 @@ import { Logo, ui } from '@/components/ui';
 import { useAutoUpdate } from '@/lib/auto-update';
 import { useAuth } from '@/lib/auth';
 import { layoutCars } from '@/lib/autohaus-layout';
-import { fetchBuyers, fetchDelivered, fetchDeliveries, fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchBuyers, fetchDelivered, fetchDeliveries, fetchFinance, fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
+import { MONTHLY_FIXED_COSTS } from '@/lib/finance';
 import { pipelineSummary, stationCounts, STATIONS } from '@/lib/deliveries';
-import { eur, monthLabel, monthStart, shiftMonth } from '@/lib/format';
+import { eur, eurShort, monthLabel, monthStart, shiftMonth } from '@/lib/format';
 import { pct, summarize, type StatSale } from '@/lib/stats';
 
 // Dunkler Prusseit-Look wie die Büro-Anzeige.
@@ -19,7 +20,6 @@ const tv = { bg: '#121214', panel: 'rgba(30,30,32,0.92)', row: '#29292b', fg: '#
 const VALUE_LINE = 41.6;
 
 const tage = (n: number | null | undefined) => (n == null ? '–' : `${Math.round(Number(n))}`);
-const shortMonth = (m: string) => new Date(`${m}T12:00:00`).toLocaleDateString('de-DE', { month: 'short' }).replace('.', '');
 
 /**
  * TV-Dashboard für die Geschäftsführung: in der Mitte das Autohaus in 3D (jedes Auto = ein Fahrzeug aus Asana),
@@ -47,6 +47,7 @@ export default function Dashboard() {
   const { data: buyers } = useLive(fetchBuyers, []);
   const { data: lead } = useLive(() => fetchLeadTimes().catch(() => null), []);
   const { data: delivered } = useLive(() => fetchDelivered().catch(() => null), [month]);
+  const { data: finance } = useLive(() => fetchFinance().catch(() => null), [month]);
   const { data: extras } = useLive(async () => {
     const prevMonth = shiftMonth(month, -1);
     const sales = await fetchSales(prevMonth, shiftMonth(month, 1)).catch(() => null);
@@ -76,12 +77,10 @@ export default function Dashboard() {
   const maxStation = Math.max(1, ...(stations ?? []).map((x) => x.count));
   const bought = (buyers ?? []).reduce((a, b) => a + b.vehicles, 0);
   const topBuyer = (buyers ?? []).find((b) => b.vehicles > 0);
-  const months = (lead?.months ?? []).slice(0, 6).reverse();
   const thisMonth = lead?.months.find((m) => m.month === month);
   const open = lead?.open ?? [];
   const openAvg = open.length ? open.reduce((a, o) => a + Number(o.days), 0) / open.length : null;
   const longCount = open.filter((o) => Number(o.days) >= 60).length;
-  const maxAvg = Math.max(1, ...months.map((m) => Number(m.avg_days)));
   const maxEuro = Math.max(1, ...(pipe?.counts ?? []).map((c) => c.euro));
   const teamPct = team?.target_vehicles ? Math.round((team.vehicles / team.target_vehicles) * 100) : null;
   const teamText = team ? (team.target_vehicles ? `${team.vehicles} / ${team.target_vehicles}` : `${team.vehicles}`) : '–';
@@ -144,9 +143,9 @@ export default function Dashboard() {
       </View>
 
       <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(12) }]}>
-        {/* links: Cashflow je Spalte und Standzeit-Verlauf */}
+        {/* links: Cashflow je Spalte und Ergebnis im Monat */}
         <View style={{ flex: 1.1, gap: f(12), minHeight: 0 }}>
-          <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(8), overflow: 'hidden' }]} {...ui('tv-row')}>
+          <View style={[styles.panel, { flex: 0.9, padding: f(14), gap: f(8), overflow: 'hidden' }]} {...ui('tv-row')}>
             <Text style={[styles.panelTitle, { fontSize: f(14) }]}>CASHFLOW JE SPALTE</Text>
             {(pipe?.counts ?? []).map((c) => (
               <View key={c.stage} style={{ gap: f(4) }}>
@@ -163,19 +162,39 @@ export default function Dashboard() {
             ))}
             <Text style={[styles.muted, { fontSize: f(11), marginTop: 'auto' }]}>ohne Vermittlung</Text>
           </View>
-          <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(6) }]} {...ui('tv-row')}>
-            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>Ø STANDZEIT JE MONAT</Text>
-            <View style={[styles.chart, { gap: f(6) }]}>
-              {months.map((m) => (
-                <View key={m.month} style={[styles.barCol, { gap: f(3) }]}>
-                  <Text style={[styles.strong, { fontSize: f(14) }]}>{tage(m.avg_days)}</Text>
-                  <View style={[styles.bar, { height: `${(Number(m.avg_days) / maxAvg) * 62}%`, borderRadius: f(4) }, m.month === month && { backgroundColor: tv.gold }]} />
-                  <Text style={[styles.muted, { fontSize: f(11) }]}>{shortMonth(m.month)}</Text>
-                </View>
-              ))}
-              {lead && months.length === 0 && <Text style={styles.muted}>Noch keine Daten</Text>}
+          {/* Ergebnis der im Monat ausgelieferten Fahrzeuge (Asana-Felder Verkaufspreis, Auszahlung VB / EK, Bankprovision gesamt) */}
+          <View style={[styles.panel, { flex: 1.1, padding: f(14), gap: f(6), overflow: 'hidden' }]} {...ui('tv-row')}>
+            <View style={styles.between}>
+              <Text style={[styles.panelTitle, { fontSize: f(14) }]} numberOfLines={1}>ERGEBNIS</Text>
+              <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>{finance ? `${finance.now.vehicles} ausgelieferte Fzg.` : ''}</Text>
             </View>
-            <Text style={[styles.muted, { fontSize: f(11) }]}>Tage vom Eingang bis Auszahlung/Prüfung</Text>
+            {(
+              [
+                ['Umsatz', finance?.now.revenue, finance?.prev.revenue, finance ? `inkl. ${eurShort(finance.now.bank)} Bank` : 'Verkaufspreis + Bankprovision', tv.fg],
+                ['Wareneinsatz', finance?.now.purchase, finance?.prev.purchase, 'Auszahlung VB / EK', tv.fg],
+                ['Gewinn', finance?.now.profit, finance?.prev.profit, `nach ${eurShort(MONTHLY_FIXED_COSTS)} Kosten`, finance && finance.now.profit < 0 ? tv.warn : tv.good],
+              ] as const
+            ).map(([label, value, prev, sub, color]) => (
+              <View key={label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(3), paddingHorizontal: f(10), borderRadius: f(8) }]}>
+                <View style={[styles.between, { gap: f(6) }]}>
+                  <Text style={[styles.fg, { fontSize: f(14) }]} numberOfLines={1}>{label}</Text>
+                  <Text style={[styles.big, { fontSize: f(22), lineHeight: f(26), color }]} numberOfLines={1}>{value == null ? '–' : eur(value)}</Text>
+                </View>
+                <View style={[styles.between, { gap: f(6) }]}>
+                  <Text style={[styles.muted, { fontSize: f(10.5), flexShrink: 1 }]} numberOfLines={1}>{sub}</Text>
+                  <Text style={[styles.muted, { fontSize: f(10.5) }]} numberOfLines={1}>Vormonat {prev == null ? '–' : eurShort(prev)}</Text>
+                </View>
+              </View>
+            ))}
+            {finance && finance.now.missingSale + finance.now.missingPurchase + finance.now.missingBank > 0 ? (
+              <Text style={{ color: tv.warn, fontSize: f(11) }} numberOfLines={1}>
+                Fehlt in Asana: {[
+                  finance.now.missingSale ? `${finance.now.missingSale}× VK` : '',
+                  finance.now.missingPurchase ? `${finance.now.missingPurchase}× EK` : '',
+                  finance.now.missingBank ? `${finance.now.missingBank}× Bankprov.` : '',
+                ].filter(Boolean).join(' · ')}
+              </Text>
+            ) : null}
           </View>
         </View>
 
@@ -282,9 +301,6 @@ const styles = StyleSheet.create({
   between: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 },
   track: { backgroundColor: tv.track, borderRadius: 6, overflow: 'hidden' },
   fill: { height: '100%', backgroundColor: tv.accent, borderRadius: 6 },
-  chart: { flex: 1, minHeight: 0, flexDirection: 'row', alignItems: 'flex-end' },
-  barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
-  bar: { width: '70%', backgroundColor: tv.accent },
   station: { flex: 1, alignItems: 'center', backgroundColor: tv.row },
   listRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: tv.row },
   stage: {
