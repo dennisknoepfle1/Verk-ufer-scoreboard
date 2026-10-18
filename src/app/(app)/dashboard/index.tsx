@@ -158,31 +158,51 @@ export default function Dashboard() {
       <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(12) }]}>
         {/* links: Cashflow je Spalte und Ergebnis im Monat */}
         <View style={{ flex: 1.1, gap: f(12), minHeight: 0 }}>
-          <View style={[styles.panel, { flex: 0.8, padding: f(12), gap: f(4), justifyContent: 'space-between', overflow: 'hidden' }]} {...ui('tv-row')}>
+          <View style={[styles.panel, { padding: f(12), gap: f(4), overflow: 'hidden' }]} {...ui('tv-row')}>
             <Text style={[styles.panelTitle, { fontSize: f(14) }]} numberOfLines={1}>CASHFLOW JE SPALTE</Text>
             {(pipe?.counts ?? []).map((c) => (
-              <View key={c.stage} style={{ gap: f(3) }}>
+              <View key={c.stage} style={{ gap: f(2) }}>
                 <View style={styles.between}>
                   <Text style={[styles.fg, { fontSize: f(14) }]} numberOfLines={1}>
                     {c.label} <Text style={styles.muted}>· {c.count}</Text>
                   </Text>
                   <Text style={[styles.strong, { fontSize: f(16) }]}>{eur(c.euro)}</Text>
                 </View>
-                <View style={[styles.track, { height: f(8) }]}>
+                <View style={[styles.track, { height: f(5) }]}>
                   <View style={[styles.fill, { width: `${(c.euro / maxEuro) * 100}%` }]} {...ui('tv-fill')} />
                 </View>
               </View>
             ))}
           </View>
           {/* Ergebnis der im Monat ausgelieferten Fahrzeuge (Asana-Felder Verkaufspreis, Auszahlung VB / EK, Bankprovision gesamt) */}
-          <View style={[styles.panel, { flex: 1.2, padding: f(12), gap: f(5), overflow: 'hidden' }]} {...ui('tv-row')}>
+          <View style={[styles.panel, { flex: 1, padding: f(12), gap: f(4), overflow: 'hidden' }]} {...ui('tv-row')}>
             <View style={styles.between}>
               <Text style={[styles.panelTitle, { fontSize: f(14) }]} numberOfLines={1}>ERGEBNIS</Text>
               <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>{finance ? `${finance.now.vehicles} ausgelieferte Fzg.` : ''}</Text>
             </View>
+            {/* Umsatz mit Aufschlüsselung in Fahrzeuge (Verkaufspreis) und Bankprovision (Wunsch Dennis 2026-10-18) */}
+            <View style={[styles.listRow, { flex: 2, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', gap: f(1), paddingVertical: f(2), paddingHorizontal: f(10), borderRadius: f(8) }]}>
+              <View style={[styles.between, { gap: f(6) }]}>
+                <Text style={[styles.fg, { fontSize: f(14), flexShrink: 1 }]} numberOfLines={1}>Umsatz</Text>
+                <Text style={[styles.big, { fontSize: f(18), lineHeight: f(21), color: tv.fg, flexShrink: 0 }]} numberOfLines={1}>{finance ? eur(finance.now.revenue) : '–'}</Text>
+              </View>
+              {(
+                [
+                  ['Fahrzeuge', finance?.now.sale, finance?.prev.sale],
+                  ['Bankprovision', finance?.now.bank, finance?.prev.bank],
+                ] as const
+              ).map(([label, value, prev]) => (
+                <View key={label} style={[styles.between, { gap: f(6) }]}>
+                  <Text style={[styles.muted, { fontSize: f(12), flexShrink: 1 }]} numberOfLines={1}>{label}</Text>
+                  <Text style={{ fontSize: f(12) }} numberOfLines={1}>
+                    <Text style={styles.fg}>{value == null ? '–' : eur(value)}</Text>
+                    <Text style={styles.muted}> · Vm. {prev == null ? '–' : eurShort(prev)}</Text>
+                  </Text>
+                </View>
+              ))}
+            </View>
             {(
               [
-                ['Umsatz', finance?.now.revenue, finance?.prev.revenue, finance ? `inkl. ${eurShort(finance.now.bank)} Bank` : 'Verkaufspreis + Bankprovision', tv.fg],
                 ['Wareneinsatz', finance?.now.purchase, finance?.prev.purchase, 'Auszahlung VB / EK', tv.fg],
                 ['Ertrag je Fzg.', finance?.now.marginPerVehicle, finance?.prev.marginPerVehicle, 'vor Kosten', tv.fg],
                 ['Gewinn', finance?.now.profit, finance?.prev.profit, `nach ${eurShort(MONTHLY_FIXED_COSTS)} Kosten`, finance && finance.now.profit < 0 ? tv.warn : tv.good],
@@ -191,7 +211,7 @@ export default function Dashboard() {
               <View key={label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(2), paddingHorizontal: f(10), borderRadius: f(8) }]}>
                 <View style={[styles.between, { gap: f(6) }]}>
                   <Text style={[styles.fg, { fontSize: f(14) }]} numberOfLines={1}>{label}</Text>
-                  <Text style={[styles.big, { fontSize: f(19), lineHeight: f(23), color }]} numberOfLines={1}>{value == null ? '–' : eur(value)}</Text>
+                  <Text style={[styles.big, { fontSize: f(18), lineHeight: f(21), color }]} numberOfLines={1}>{value == null ? '–' : eur(value)}</Text>
                 </View>
                 <View style={[styles.between, { gap: f(6) }]}>
                   <Text style={[styles.muted, { fontSize: f(10.5), flexShrink: 1 }]} numberOfLines={1}>{sub}</Text>
