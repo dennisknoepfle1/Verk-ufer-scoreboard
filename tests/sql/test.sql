@@ -319,11 +319,23 @@ update public.asana_deliveries set amount = 10000, purchase_price = null, bank_c
 update public.asana_deliveries set amount = 99999, purchase_price = 1, bank_commission = 1 where task_gid = 'b2';
 set role authenticated;
 do $$ begin
-  assert (select vehicles from finance_summary() order by month desc limit 1) = 2, 'gleiche Fahrzeuge wie Ausgeliefert';
-  assert (select sale_total from finance_summary() order by month desc limit 1) = 30000, 'Verkaufspreise';
-  assert (select bank_total from finance_summary() order by month desc limit 1) = 1100, 'Bankprovision';
-  assert (select purchase_total from finance_summary() order by month desc limit 1) = 15000, 'Einkauf';
-  assert (select missing_purchase from finance_summary() order by month desc limit 1) = 1, 'fehlender Einkaufspreis gezählt';
+  assert (select vehicles from finance_months() order by month desc limit 1) = 2, 'gleiche Fahrzeuge wie Ausgeliefert';
+  assert (select sale_total from finance_months() order by month desc limit 1) = 30000, 'Verkaufspreise';
+  assert (select bank_total from finance_months() order by month desc limit 1) = 1100, 'Bankprovision';
+  assert (select purchase_total from finance_months() order by month desc limit 1) = 15000, 'Einkauf';
+  assert (select missing_purchase from finance_months() order by month desc limit 1) = 1, 'fehlender Einkaufspreis gezählt';
+  assert (select complete_vehicles from finance_months() order by month desc limit 1) = 1, 'nur vollständige Fahrzeuge';
+  assert (select complete_margin from finance_months() order by month desc limit 1) = 5800, 'Ertrag 20000 + 800 - 15000';
+end $$;
+reset role;
+-- Standzeit 3: Verkauf bis Auslieferung; Datum nach der Auslieferung zählt als fehlend
+update public.asana_deliveries set sold_on = (now() at time zone 'Europe/Berlin')::date - 12 where task_gid = 'b6';
+update public.asana_deliveries set sold_on = (now() at time zone 'Europe/Berlin')::date + 3 where task_gid = 'b1';
+set role authenticated;
+do $$ begin
+  assert (select vehicles from sale_to_delivery() order by month desc limit 1) = 2, 'gleiche Fahrzeuge wie Ausgeliefert';
+  assert (select with_date from sale_to_delivery() order by month desc limit 1) = 1, 'Datum in der Zukunft zählt nicht';
+  assert (select avg_days from sale_to_delivery() order by month desc limit 1) = 12, 'Tage Verkauf bis Auslieferung';
 end $$;
 reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
@@ -331,7 +343,8 @@ set role authenticated;
 do $$ begin
   assert (select count(*) from lead_time_months()) = 0, 'Verkäufer sieht keine Standzeiten';
   assert (select sum(vehicles) from delivered_summary()) = 0, 'Verkäufer sieht keine Auslieferungen';
-  assert (select sum(sale_total) from finance_summary()) = 0, 'Verkäufer sieht keine Umsätze';
+  assert (select sum(sale_total) from finance_months()) = 0, 'Verkäufer sieht keine Umsätze';
+  assert (select sum(vehicles) from sale_to_delivery()) = 0, 'Verkäufer sieht keine Standzeit 3';
 end $$;
 reset role;
 select 'ALLE SQL-TESTS OK' as result;

@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import { missingInfo, pipelineSummary, stationCounts, STATIONS, type Delivery } from '../src/lib/deliveries.ts';
 import { layoutCars } from '../src/lib/autohaus-layout.ts';
-import { amountOf, bankCommissionOf, dealTypeOf, purchaseOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
+import { amountOf, bankCommissionOf, soldOnOf, dealTypeOf, purchaseOf, leadTimeOf, monthStartIso, needsLeadTime, projectGid, stageOf, toRow } from '../supabase/functions/asana-sync/logic.ts';
 
 const d = (due_on: string | null, stage: Delivery['stage'] = 'auslieferung'): Delivery => ({
   task_gid: Math.random().toString(), name: 'Auto', section: '', stage, due_on, permalink_url: null,
@@ -160,4 +160,14 @@ test('Einkaufspreis und Bankprovision aus den neuen Asana-Feldern', () => {
   const row = toRow(t, 'p');
   assert.equal(row.purchase_price, 17500);
   assert.equal(row.bank_commission, 1234.5);
+});
+
+test('Verkaufstag aus „Datum Verkauf“ (nicht „Termin Auslieferung“)', () => {
+  const t = { gid: '1', custom_fields: [
+    { name: 'Termin Auslieferung', type: 'date', date_value: { date: '2026-10-15', date_time: '2026-10-15T14:30:00.000Z' } },
+    { name: 'Datum Verkauf', type: 'date', date_value: { date: '2026-09-11', date_time: null } },
+  ] };
+  assert.equal(soldOnOf(t), '2026-09-11');
+  assert.equal(toRow(t, 'p').sold_on, '2026-09-11');
+  assert.equal(soldOnOf({ gid: '2', custom_fields: [{ name: 'Datum Verkauf', type: 'date', date_value: null }] }), null);
 });

@@ -72,6 +72,13 @@ export function bankCommissionOf(t: AsanaTask): number | null {
   return numberField(t, (n) => n.startsWith('bankprovision'));
 }
 
+/** Verkaufstag: Datumsfeld „Datum Verkauf“ (Start der Standzeit 3 bis zur Auslieferung). */
+export function soldOnOf(t: AsanaTask): string | null {
+  const f = t.custom_fields?.find((c) => c.type === 'date' && (c.name ?? '').trim().toLowerCase().startsWith('datum verkauf'));
+  const v = f?.date_value?.date ?? f?.date_value?.date_time ?? null;
+  return v ? v.slice(0, 10) : null;
+}
+
 /** Ankaufsart: Feld „Art des Geschäftes“ (Direkter Ankauf, Vermittlung, Inzahlungnahme). */
 export function dealTypeOf(t: AsanaTask): string | null {
   return field(t, (n) => n.startsWith('art des gesch'))?.enum_value?.name?.trim() || null;
@@ -93,6 +100,7 @@ export function toRow(t: AsanaTask, gid: string) {
     amount: amountOf(t),
     purchase_price: purchaseOf(t),
     bank_commission: bankCommissionOf(t),
+    sold_on: soldOnOf(t),
     deal_type: dealTypeOf(t),
   };
 }

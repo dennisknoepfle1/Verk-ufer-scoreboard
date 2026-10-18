@@ -13,9 +13,10 @@ export type FinanceMonth = {
   missingSale: number;
   missingPurchase: number;
   missingBank: number;
+  marginPerVehicle: number | null; // Ertrag pro Fahrzeug (nur mit VK und EK), vor Fixkosten
 };
 
-export function financeOf(r: { vehicles: number; sale_total: number | string; bank_total: number | string; purchase_total: number | string; missing_sale: number; missing_purchase: number; missing_bank: number } | undefined): FinanceMonth {
+export function financeOf(r: { vehicles: number; sale_total: number | string; bank_total: number | string; purchase_total: number | string; missing_sale: number; missing_purchase: number; missing_bank: number; complete_vehicles?: number; complete_margin?: number | string } | undefined): FinanceMonth {
   const sale = Number(r?.sale_total ?? 0);
   const bank = Number(r?.bank_total ?? 0);
   const purchase = Number(r?.purchase_total ?? 0);
@@ -30,5 +31,6 @@ export function financeOf(r: { vehicles: number; sale_total: number | string; ba
     missingSale: r?.missing_sale ?? 0,
     missingPurchase: r?.missing_purchase ?? 0,
     missingBank: r?.missing_bank ?? 0,
+    marginPerVehicle: r?.complete_vehicles ? Number(r.complete_margin ?? 0) / r.complete_vehicles : null,
   };
 }

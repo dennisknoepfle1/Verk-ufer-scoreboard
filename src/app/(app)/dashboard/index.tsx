@@ -7,7 +7,8 @@ import { Logo, ui } from '@/components/ui';
 import { useAutoUpdate } from '@/lib/auto-update';
 import { useAuth } from '@/lib/auth';
 import { layoutCars } from '@/lib/autohaus-layout';
-import { fetchBuyers, fetchDelivered, fetchDeliveries, fetchFinance, fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
+import { fetchBuyers, fetchDelivered, fetchDeliveries, fetchFinance, fetchSaleToDelivery,
+  fetchLeadTimes, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
 import { MONTHLY_FIXED_COSTS } from '@/lib/finance';
 import { pipelineSummary, stationCounts, STATIONS } from '@/lib/deliveries';
 import { eur, eurShort, monthLabel, monthStart, shiftMonth } from '@/lib/format';
@@ -48,6 +49,7 @@ export default function Dashboard() {
   const { data: lead } = useLive(() => fetchLeadTimes().catch(() => null), []);
   const { data: delivered } = useLive(() => fetchDelivered().catch(() => null), [month]);
   const { data: finance } = useLive(() => fetchFinance().catch(() => null), [month]);
+  const { data: saleLead } = useLive(() => fetchSaleToDelivery().catch(() => null), [month]);
   const { data: extras } = useLive(async () => {
     const prevMonth = shiftMonth(month, -1);
     const sales = await fetchSales(prevMonth, shiftMonth(month, 1)).catch(() => null);
@@ -97,7 +99,7 @@ export default function Dashboard() {
       <Text style={[styles.label, { fontSize: f(13) }]} numberOfLines={1}>
         {label}
       </Text>
-      <Text style={[styles.big, { fontSize: f(Math.min(30, 250 / Math.max(1, value.length))), lineHeight: VALUE_LINE * s, color }]} numberOfLines={1}>
+      <Text style={[styles.big, { fontSize: f(Math.min(30, 215 / Math.max(1, value.length))), lineHeight: VALUE_LINE * s, color }]} numberOfLines={1}>
         {value}
       </Text>
       {sub ? (
@@ -127,7 +129,7 @@ export default function Dashboard() {
         <Tile
           label="CASHFLOW"
           value={pipe ? eur(pipe.euro) : '–'}
-          sub={pipe ? `${pipe.total} Fzg.${pipe.missing ? ` · ${pipe.missing} ohne Preis/Art` : ' im Zulauf'}` : 'Asana nicht erreichbar'}
+          sub={pipe ? `${pipe.total} Fzg.${pipe.missing ? ` · ${pipe.missing} ohne Preis` : ' im Zulauf'}` : 'Asana nicht erreichbar'}
           color={tv.gold}
         />
         <Tile label="VERKAUFT" value={teamText} sub={teamPct != null ? `${teamPct} % vom Teamziel` : 'Fahrzeuge'} color={teamPct != null && teamPct >= 100 ? tv.good : tv.fg} />
@@ -139,16 +141,27 @@ export default function Dashboard() {
           sub={delivered ? `Vormonat ${delivered.prev}` : 'Fahrzeuge laut Asana'}
           color={tv.good}
         />
-        <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} T. · ${longCount} über 60 T.` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
+        <Tile
+          label="STANDZEIT 3"
+          value={saleLead?.now.avgDays != null ? `${tage(saleLead.now.avgDays)} Tage` : '–'}
+          sub={
+            saleLead
+              ? saleLead.now.withDate < saleLead.now.vehicles
+                ? `${saleLead.now.vehicles - saleLead.now.withDate}× ohne Datum`
+                : `ab Verkauf · Vm. ${tage(saleLead.prev.avgDays)}`
+              : 'Verkauf → Auslieferung'
+          }
+        />
+        <Tile label="STEHEN GERADE" value={lead ? `${open.length}` : '–'} sub={lead ? `Ø ${tage(openAvg)} T. · ${longCount} > 60 T.` : 'Eingang bis heute'} color={longCount ? tv.warn : tv.fg} />
       </View>
 
       <View style={[styles.row, { flex: 1, minHeight: 0, gap: f(12) }]}>
         {/* links: Cashflow je Spalte und Ergebnis im Monat */}
         <View style={{ flex: 1.1, gap: f(12), minHeight: 0 }}>
-          <View style={[styles.panel, { flex: 0.9, padding: f(14), gap: f(8), overflow: 'hidden' }]} {...ui('tv-row')}>
-            <Text style={[styles.panelTitle, { fontSize: f(14) }]}>CASHFLOW JE SPALTE</Text>
+          <View style={[styles.panel, { flex: 0.8, padding: f(12), gap: f(4), justifyContent: 'space-between', overflow: 'hidden' }]} {...ui('tv-row')}>
+            <Text style={[styles.panelTitle, { fontSize: f(14) }]} numberOfLines={1}>CASHFLOW JE SPALTE</Text>
             {(pipe?.counts ?? []).map((c) => (
-              <View key={c.stage} style={{ gap: f(4) }}>
+              <View key={c.stage} style={{ gap: f(3) }}>
                 <View style={styles.between}>
                   <Text style={[styles.fg, { fontSize: f(14) }]} numberOfLines={1}>
                     {c.label} <Text style={styles.muted}>· {c.count}</Text>
@@ -160,10 +173,9 @@ export default function Dashboard() {
                 </View>
               </View>
             ))}
-            <Text style={[styles.muted, { fontSize: f(11), marginTop: 'auto' }]}>ohne Vermittlung</Text>
           </View>
           {/* Ergebnis der im Monat ausgelieferten Fahrzeuge (Asana-Felder Verkaufspreis, Auszahlung VB / EK, Bankprovision gesamt) */}
-          <View style={[styles.panel, { flex: 1.1, padding: f(14), gap: f(6), overflow: 'hidden' }]} {...ui('tv-row')}>
+          <View style={[styles.panel, { flex: 1.2, padding: f(12), gap: f(5), overflow: 'hidden' }]} {...ui('tv-row')}>
             <View style={styles.between}>
               <Text style={[styles.panelTitle, { fontSize: f(14) }]} numberOfLines={1}>ERGEBNIS</Text>
               <Text style={[styles.muted, { fontSize: f(12) }]} numberOfLines={1}>{finance ? `${finance.now.vehicles} ausgelieferte Fzg.` : ''}</Text>
@@ -172,13 +184,14 @@ export default function Dashboard() {
               [
                 ['Umsatz', finance?.now.revenue, finance?.prev.revenue, finance ? `inkl. ${eurShort(finance.now.bank)} Bank` : 'Verkaufspreis + Bankprovision', tv.fg],
                 ['Wareneinsatz', finance?.now.purchase, finance?.prev.purchase, 'Auszahlung VB / EK', tv.fg],
+                ['Ertrag je Fzg.', finance?.now.marginPerVehicle, finance?.prev.marginPerVehicle, 'vor Kosten', tv.fg],
                 ['Gewinn', finance?.now.profit, finance?.prev.profit, `nach ${eurShort(MONTHLY_FIXED_COSTS)} Kosten`, finance && finance.now.profit < 0 ? tv.warn : tv.good],
               ] as const
             ).map(([label, value, prev, sub, color]) => (
-              <View key={label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(3), paddingHorizontal: f(10), borderRadius: f(8) }]}>
+              <View key={label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(2), paddingHorizontal: f(10), borderRadius: f(8) }]}>
                 <View style={[styles.between, { gap: f(6) }]}>
                   <Text style={[styles.fg, { fontSize: f(14) }]} numberOfLines={1}>{label}</Text>
-                  <Text style={[styles.big, { fontSize: f(22), lineHeight: f(26), color }]} numberOfLines={1}>{value == null ? '–' : eur(value)}</Text>
+                  <Text style={[styles.big, { fontSize: f(19), lineHeight: f(23), color }]} numberOfLines={1}>{value == null ? '–' : eur(value)}</Text>
                 </View>
                 <View style={[styles.between, { gap: f(6) }]}>
                   <Text style={[styles.muted, { fontSize: f(10.5), flexShrink: 1 }]} numberOfLines={1}>{sub}</Text>

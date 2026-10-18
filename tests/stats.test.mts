@@ -72,3 +72,10 @@ test('Ergebnis: Umsatz = VK + Bankprovision, Gewinn = Umsatz − Wareneinsatz �
   assert.equal(f.profit, 31100 - 15000 - 500000);
   assert.equal(financeOf(undefined).profit, -500000);
 });
+
+test('Ertrag pro Fahrzeug: nur vollständige Fahrzeuge, vor Fixkosten', async () => {
+  const { financeOf } = await import('../src/lib/finance.ts');
+  const base = { vehicles: 2, sale_total: 30000, bank_total: 1100, purchase_total: 15000, missing_sale: 0, missing_purchase: 1, missing_bank: 0 };
+  assert.equal(financeOf({ ...base, complete_vehicles: 1, complete_margin: '5800' }).marginPerVehicle, 5800);
+  assert.equal(financeOf({ ...base, complete_vehicles: 0, complete_margin: 0 }).marginPerVehicle, null);
+});

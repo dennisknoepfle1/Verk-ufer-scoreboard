@@ -312,9 +312,24 @@ export async function fetchDelivered() {
   return { now: rows[0]?.vehicles ?? 0, nowSkipped: rows[0]?.skipped ?? 0, prev: rows[1]?.vehicles ?? 0, prevSkipped: rows[1]?.skipped ?? 0 };
 }
 
+export type SaleToDelivery = { vehicles: number; withDate: number; avgDays: number | null };
+
+/** Standzeit 3: Tage vom Verkauf („Datum Verkauf“ in Asana) bis zur Auslieferung, in diesem und im Vormonat (Admin). */
+export async function fetchSaleToDelivery() {
+  const { data, error } = await supabase.rpc('sale_to_delivery');
+  if (error) throw error;
+  const rows = (data ?? []) as { vehicles: number; with_date: number; avg_days: number | string | null }[];
+  const of = (r: (typeof rows)[number] | undefined): SaleToDelivery => ({
+    vehicles: r?.vehicles ?? 0,
+    withDate: r?.with_date ?? 0,
+    avgDays: r?.avg_days == null ? null : Number(r.avg_days),
+  });
+  return { now: of(rows[0]), prev: of(rows[1]) };
+}
+
 /** Umsatz, Wareneinsatz und Gewinn der ausgelieferten Fahrzeuge (aus Asana) in diesem und im Vormonat (Admin). */
 export async function fetchFinance() {
-  const { data, error } = await supabase.rpc('finance_summary');
+  const { data, error } = await supabase.rpc('finance_months');
   if (error) throw error;
   const rows = (data ?? []) as Parameters<typeof financeOf>[0][];
   return { now: financeOf(rows[0]), prev: financeOf(rows[1]) };
