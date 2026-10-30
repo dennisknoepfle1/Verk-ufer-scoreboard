@@ -30,9 +30,9 @@ create trigger sales_require_instructions before insert on public.sales
 create trigger kudos_require_instructions before insert on public.kudos
   for each row execute function public.require_instructions_confirmed();
 
--- Admin-Übersicht zusätzlich: hat der Verkäufer Benachrichtigungen auf mindestens einem Gerät an?
-drop function public.instruction_status();
-create function public.instruction_status()
+-- Admin-Übersicht wie instruction_status, zusätzlich: hat der Verkäufer Benachrichtigungen auf mindestens einem Gerät an?
+-- (Neue Funktion statt DROP, da DROP FUNCTION über den Supabase-Connector hängt; instruction_status bleibt ungenutzt.)
+create function public.instruction_overview()
 returns table (instruction_id bigint, user_id uuid, full_name text, confirmed_at timestamptz, has_push boolean)
 language sql stable security definer set search_path = public as $$
   select w.id, p.id, p.full_name, a.confirmed_at,
@@ -43,8 +43,8 @@ language sql stable security definer set search_path = public as $$
   where is_admin() and p.role = 'seller' and p.status = 'active'
   order by w.id, a.confirmed_at nulls first, p.full_name;
 $$;
-revoke execute on function public.instruction_status() from public, anon;
-grant execute on function public.instruction_status() to authenticated;
+revoke execute on function public.instruction_overview() from public, anon;
+grant execute on function public.instruction_overview() to authenticated;
 
 -- Push genau einmal je Anweisung.
 alter table public.work_instructions add column push_sent_at timestamptz;

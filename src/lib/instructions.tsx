@@ -58,7 +58,7 @@ export type AckRow = { instruction_id: number; user_id: string; full_name: strin
 
 /** Admin: je Anweisung alle aktiven Verkäufer mit Bestätigung oder offen. */
 export async function fetchInstructionStatus(): Promise<Record<number, AckRow[]>> {
-  const { data, error } = await supabase.rpc('instruction_status');
+  const { data, error } = await supabase.rpc('instruction_overview');
   if (error) throw error;
   const out: Record<number, AckRow[]> = {};
   for (const r of (data ?? []) as AckRow[]) (out[r.instruction_id] ??= []).push(r);

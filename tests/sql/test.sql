@@ -418,7 +418,7 @@ reset role;
 select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
 set role authenticated;
 do $$ begin
-  assert (select count(*) from instruction_status() where has_push is null) = 0, 'Push-Stand je Verkäufer';
+  assert (select count(*) from instruction_overview() where has_push is null) = 0, 'Push-Stand je Verkäufer';
 end $$;
 reset role;
 select 'ALLE SQL-TESTS OK' as result;
