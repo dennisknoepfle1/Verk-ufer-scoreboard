@@ -188,6 +188,8 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'display_settings' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kudos' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'asana_sync' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'work_instructions' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'instruction_acks' }, run)
       .subscribe();
     const timer = setInterval(run, 60_000);
     // Zurück aus dem Hintergrund oder wieder Netz: sofort frisch laden statt auf den nächsten Takt zu warten.
