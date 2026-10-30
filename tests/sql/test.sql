@@ -394,4 +394,31 @@ do $$ begin
     and instruction_id = (select id from work_instructions where title = 'Probefahrt')) = 1, 'Admin sieht Bestätigung';
 end $$;
 reset role;
+-- Offene Anweisung sperrt auch in der Datenbank: keine Verkäufe, kein Lob, bis bestätigt
+do $$ begin
+  assert (select count(*) from net.calls where body ? 'instruction_id') = 2, 'Push je neuer Anweisung';
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert has_open_instructions(), 'Laura hat eine offene Anweisung';
+  begin
+    insert into sales (vehicle) values ('Gesperrt');
+    assert false, 'Verkauf trotz offener Anweisung';
+  exception when sqlstate 'P0A01' then null; end;
+  begin
+    insert into kudos (sale_id) values ((select min(id) from sales));
+    assert false, 'Lob trotz offener Anweisung';
+  exception when sqlstate 'P0A01' then null; end;
+  insert into instruction_acks (instruction_id) values ((select id from work_instructions where title = 'Probefahrt'));
+  assert not has_open_instructions(), 'nach Bestätigung frei';
+  insert into sales (vehicle) values ('Nach Bestätigung');
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert (select count(*) from instruction_status() where has_push is null) = 0, 'Push-Stand je Verkäufer';
+end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;

@@ -2,6 +2,7 @@ import { Redirect, router } from 'expo-router';
 import { useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { PushCard } from '@/components/PushCard';
 import { BrandBar, Button, Card, colors, H1, H2, Loading, Muted, Notice, Screen, ThemeToggle, ui } from '@/components/ui';
 import { useAuth } from '@/lib/auth';
 import { dateLabel } from '@/lib/format';
@@ -38,6 +39,7 @@ export default function Anweisungen() {
         </>
       )}
 
+      <PushCard />
       {open.map((i) => (
         <OpenInstruction key={i.id} item={i} onDone={reload} />
       ))}

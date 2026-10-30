@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from 'react';
 
 import { useLive } from './data';
+import { kv } from './pending';
 import { openOf, storageName } from './instruction-rules';
 import { supabase } from './supabase';
 
@@ -53,7 +54,7 @@ export async function confirmInstruction(id: number) {
   if (error && error.code !== '23505') throw new Error(error.message);
 }
 
-export type AckRow = { instruction_id: number; user_id: string; full_name: string; confirmed_at: string | null };
+export type AckRow = { instruction_id: number; user_id: string; full_name: string; confirmed_at: string | null; has_push: boolean };
 
 /** Admin: je Anweisung alle aktiven Verkäufer mit Bestätigung oder offen. */
 export async function fetchInstructionStatus(): Promise<Record<number, AckRow[]>> {
@@ -119,12 +120,30 @@ const GateContext = createContext<Gate>({ list: null, open: [], reload: () => {}
 
 /**
  * Hält für Verkäufer die Anweisungen aktuell (live, jede Minute, beim Zurückkehren in die App).
- * Klappt das Laden nicht (kein Netz), wird nichts gesperrt: Verkäufe eintragen geht immer.
+ * Die Datenbank nimmt bei offener Anweisung ohnehin keine Verkäufe an; offline eingetragene Verkäufe warten,
+ * bis bestätigt ist.
  */
-export function InstructionGateProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
-  const { data, reload } = useLive(async () => (enabled ? fetchInstructions() : []), [enabled]);
-  const list = data ?? null;
+export function InstructionGateProvider({ enabled, userId, children }: { enabled: boolean; userId: string; children: ReactNode }) {
+  const cacheKey = `instructions:${userId}`;
+  const { data, reload } = useLive(async () => {
+    const list = enabled ? await fetchInstructions() : [];
+    try {
+      kv.setItem(cacheKey, JSON.stringify(list));
+    } catch {}
+    return list;
+  }, [enabled, cacheKey]);
+  // Bis frisch geladen ist (oder ohne Netz) gilt der zuletzt bekannte Stand: offene Anweisungen bleiben gesperrt.
+  const list = data ?? (enabled ? readCache(cacheKey) : null);
   return <GateContext.Provider value={{ list, open: list ? openOf(list) : [], reload }}>{children}</GateContext.Provider>;
+}
+
+function readCache(key: string): Instruction[] | null {
+  try {
+    const list = JSON.parse(kv.getItem(key) ?? 'null');
+    return Array.isArray(list) ? list : null;
+  } catch {
+    return null;
+  }
 }
 
 export const useInstructionGate = () => useContext(GateContext);

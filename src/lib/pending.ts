@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 
 import { flushQueue, isNetworkError, readQueue, removeFromQueue, type KV, type PendingSale, type SendResult } from './offline';
+import { INSTRUCTION_BLOCK_CODE } from './instruction-rules';
 import { supabase } from './supabase';
 
 const memory = new Map<string, string>();
@@ -27,6 +28,8 @@ export async function sendSale(s: PendingSale): Promise<SendResult & ('ok' | 'du
     });
     if (!error) return 'ok';
     if (error.code === '23505') return 'duplicate';
+    // Offene Arbeitsanweisung: der Verkauf wartet und geht nach dem Bestätigen automatisch raus.
+    if (error.code === INSTRUCTION_BLOCK_CODE) return 'offline';
     if (isNetworkError(error)) return 'offline';
     return { error: error.message };
   } catch (e) {

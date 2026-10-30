@@ -82,6 +82,7 @@ self.addEventListener('push', (e) => {
     self.registration.showNotification(d.title || 'Verkäufer-Scoreboard', {
       body: d.body || '',
       tag: d.tag,
+      requireInteraction: !!d.requireInteraction,
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: { url: d.url || '/' },
