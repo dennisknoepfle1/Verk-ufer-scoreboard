@@ -80,6 +80,7 @@ export default function Scoreboard() {
       <BrandBar
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+            <Link href="/anweisungen" style={styles.link}>Anweisungen</Link>
             <ThemeToggle />
             <Text onPress={signOut} style={styles.link} accessibilityRole="button">Abmelden</Text>
           </View>

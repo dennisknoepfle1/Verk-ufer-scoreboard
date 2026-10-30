@@ -347,4 +347,51 @@ do $$ begin
   assert (select sum(vehicles) from sale_to_delivery()) = 0, 'Verkäufer sieht keine Standzeit 3';
 end $$;
 reset role;
+-- Arbeitsanweisungen: Admin stellt ein, Verkäufer bestätigen nur für sich, Admin sieht den Stand
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+set role authenticated;
+insert into work_instructions (title, body) values ('Probefahrt', 'Immer Führerschein kopieren.');
+insert into work_instructions (title, body, archived_at) values ('Alt', 'Gilt nicht mehr.', now());
+do $$ begin
+  begin
+    insert into work_instructions (title, body) values ('Leer', '');
+    assert false, 'Anweisung ohne Text und Datei hätte scheitern müssen';
+  exception when check_violation then null; end;
+  assert (select count(*) from instruction_status() where confirmed_at is null and instruction_id = (select id from work_instructions where title = 'Probefahrt'))
+    = (select count(*) from profiles where role = 'seller' and status = 'active'), 'alle Verkäufer offen';
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000001', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  begin
+    insert into work_instructions (title, body) values ('Von Jonas', 'x');
+    assert false, 'Verkäufer darf keine Anweisung einstellen';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into instruction_acks (instruction_id, user_id) values ((select id from work_instructions where title = 'Probefahrt'), '00000000-0000-0000-0000-000000000002');
+    assert false, 'Verkäufer darf nicht für andere bestätigen';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into instruction_acks (instruction_id) values ((select id from work_instructions where title = 'Alt'));
+    assert false, 'Zurückgezogene Anweisung muss nicht bestätigt werden';
+  exception when insufficient_privilege then null; end;
+  insert into instruction_acks (instruction_id, confirmed_at) values ((select id from work_instructions where title = 'Probefahrt'), '2000-01-01');
+  assert (select confirmed_at from instruction_acks) > '2020-01-01', 'Zeit kommt vom Server';
+  assert (select count(*) from instruction_status()) = 0, 'Verkäufer sieht keinen Gesamtstand';
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert (select count(*) from instruction_acks) = 0, 'Laura sieht fremde Bestätigungen';
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert (select count(*) from instruction_status() where full_name = 'Jonas' and confirmed_at is not null
+    and instruction_id = (select id from work_instructions where title = 'Probefahrt')) = 1, 'Admin sieht Bestätigung';
+end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;

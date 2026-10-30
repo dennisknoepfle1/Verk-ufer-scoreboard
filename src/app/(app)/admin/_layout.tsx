@@ -10,6 +10,7 @@ const NAV = [
   { href: '/admin/team', label: 'Team und Ziele' },
   { href: '/admin/statistik', label: 'Statistik' },
   { href: '/admin/provision', label: 'Provision' },
+  { href: '/admin/anweisungen', label: 'Anweisungen' },
   { href: '/admin/auslieferungen', label: 'Cashflow' },
   { href: '/admin/einkauf', label: 'Einkäufer' },
   { href: '/admin/standzeit', label: 'Standzeit' },
