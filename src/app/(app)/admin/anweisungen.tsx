@@ -91,7 +91,7 @@ export default function AdminAnweisungen() {
     <Screen maxWidth={800}>
       <H1>Arbeitsanweisungen</H1>
       <Muted>
-        Neue Anweisungen erscheinen bei allen Verkäufern sofort. Sie müssen sie lesen und bestätigen, vorher kommen sie in der App nicht weiter.
+        Neue Anweisungen erscheinen bei allen Verkäufern sofort und kommen als Benachrichtigung aufs Handy. Sie müssen sie lesen und bestätigen, vorher kommen sie in der App nicht weiter und können keine Verkäufe eintragen.
         Verkäufer, die später dazukommen, bestätigen alle aktiven Anweisungen bei der ersten Anmeldung.
       </Muted>
       {error && <Notice tone="danger">{error}</Notice>}
@@ -184,7 +184,7 @@ function InstructionCard({ item, acks, children }: { item: Instruction; acks: Ac
       <View style={styles.people}>
         {open.map((a) => (
           <Text key={a.user_id} style={[styles.person, styles.personOpen]}>
-            ○ {a.full_name} · offen
+            ○ {a.full_name} · offen{a.has_push ? '' : ' · 🔕'}
           </Text>
         ))}
         {done.map((a) => (
@@ -193,6 +193,9 @@ function InstructionCard({ item, acks, children }: { item: Instruction; acks: Ac
           </Text>
         ))}
       </View>
+      {open.some((a) => !a.has_push) && (
+        <Muted>🔕 = hat auf keinem Gerät Benachrichtigungen eingeschaltet und sieht die Anweisung erst beim nächsten Öffnen der App.</Muted>
+      )}
       <View style={styles.actions}>{children}</View>
     </Card>
   );

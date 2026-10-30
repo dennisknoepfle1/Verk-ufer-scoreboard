@@ -1,5 +1,8 @@
 /** Reine Regeln für Arbeitsanweisungen (ohne App-Abhängigkeiten, damit sie testbar sind). */
 
+/** Fehlercode der Datenbank, wenn ein Verkäufer noch eine Arbeitsanweisung bestätigen muss. */
+export const INSTRUCTION_BLOCK_CODE = 'P0A01';
+
 /** Dateiname für den Speicher: nur einfache Zeichen, damit die Adresse überall funktioniert. */
 export function storageName(name: string, now = Date.now()): string {
   const dot = name.lastIndexOf('.');

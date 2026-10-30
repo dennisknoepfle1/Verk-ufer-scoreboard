@@ -1,5 +1,6 @@
 // Schickt bei einem neuen Verkauf eine Push-Nachricht an alle aktiven Nutzer außer dem Verkäufer.
 // Aufgerufen vom Datenbank-Trigger sales_notify_push mit { sale_id }.
+// Neue Arbeitsanweisung (Trigger work_instructions_notify_push mit { instruction_id }): an alle aktiven Verkäufer.
 // Kein Login nötig: die Funktion prüft selbst, dass der Verkauf frisch ist und noch nicht gemeldet wurde.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import webpush from 'npm:web-push@3.6.7';
@@ -15,7 +16,7 @@ const json = (body: unknown, status = 200) =>
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'POST' }, 405);
-  const { sale_id, selftest } = await req.json().catch(() => ({}));
+  const { sale_id, instruction_id, selftest } = await req.json().catch(() => ({}));
 
   // Selbsttest ohne Versand: Schlüssel laden und eine Nachricht verschlüsseln.
   if (selftest === true) {
@@ -32,6 +33,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, bytes: (details.body as Uint8Array).length, signed: !!details.headers.Authorization });
   }
 
+  if (Number.isInteger(instruction_id)) return json(await notifyInstruction(instruction_id));
   if (!Number.isInteger(sale_id)) return json({ error: 'sale_id' }, 400);
 
   // Genau einmal je Verkauf und nur für frische Verkäufe (älter als 10 Minuten: ignorieren).
@@ -47,10 +49,6 @@ Deno.serve(async (req) => {
   if (error) return json({ error: error.message }, 500);
   if (!sale) return json({ sent: 0, skipped: true });
 
-  const { data: key } = await db.rpc('push_vapid_private_key');
-  if (!key) return json({ error: 'VAPID-Schlüssel fehlt' }, 500);
-  webpush.setVapidDetails('https://verkaeufer-scoreboard.expo.app', VAPID_PUBLIC_KEY, key as string);
-
   const { data: subs } = await db
     .from('push_subscriptions')
     .select('endpoint, p256dh, auth, user_id, profiles!inner(status)')
@@ -65,10 +63,20 @@ Deno.serve(async (req) => {
     tag: `sale-${sale.id}`,
   });
 
+  return json(await send(subs ?? [], payload));
+});
+
+type Sub = { endpoint: string; p256dh: string; auth: string };
+
+/** Verschickt an alle Abos; abgelaufene Abos werden gelöscht. */
+async function send(subs: Sub[], payload: string) {
+  const { data: key } = await db.rpc('push_vapid_private_key');
+  if (!key) return { error: 'VAPID-Schlüssel fehlt' };
+  webpush.setVapidDetails('https://verkaeufer-scoreboard.expo.app', VAPID_PUBLIC_KEY, key as string);
   let sent = 0;
   const gone: string[] = [];
   await Promise.all(
-    (subs ?? []).map(async (s) => {
+    subs.map(async (s) => {
       try {
         await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload, { TTL: 3600 });
         sent++;
@@ -80,5 +88,34 @@ Deno.serve(async (req) => {
     }),
   );
   if (gone.length) await db.from('push_subscriptions').delete().in('endpoint', gone);
-  return json({ sent, removed: gone.length });
-});
+  return { sent, removed: gone.length };
+}
+
+/** Neue Arbeitsanweisung: genau einmal und nur, solange sie frisch und aktiv ist. */
+async function notifyInstruction(id: number) {
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  const { data: ins, error } = await db
+    .from('work_instructions')
+    .update({ push_sent_at: new Date().toISOString() })
+    .eq('id', id)
+    .is('push_sent_at', null)
+    .is('archived_at', null)
+    .gte('created_at', since)
+    .select('id, title')
+    .maybeSingle();
+  if (error) return { error: error.message };
+  if (!ins) return { sent: 0, skipped: true };
+  const { data: subs } = await db
+    .from('push_subscriptions')
+    .select('endpoint, p256dh, auth, profiles!inner(status, role)')
+    .eq('profiles.status', 'active')
+    .eq('profiles.role', 'seller');
+  const payload = JSON.stringify({
+    title: 'Neue Arbeitsanweisung 📋',
+    body: `${ins.title} – bitte lesen und bestätigen.`,
+    url: '/anweisungen',
+    tag: `anweisung-${ins.id}`,
+    requireInteraction: true,
+  });
+  return send(subs ?? [], payload);
+}

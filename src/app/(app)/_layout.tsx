@@ -13,7 +13,7 @@ export default function ActiveLayout() {
   if (!session) return <Redirect href="/login" />;
   if (profile?.status !== 'active') return <Redirect href="/pending" />;
   return (
-    <InstructionGateProvider enabled={profile.role === 'seller'}>
+    <InstructionGateProvider enabled={profile.role === 'seller'} userId={profile.id}>
       <Gate>
         <Stack screenOptions={{ headerShown: false }} />
       </Gate>
