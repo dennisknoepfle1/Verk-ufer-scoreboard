@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { finOf, inStock, matchListings, normalizeNumber, stockNumberOf, type AsanaVehicle, type Listing } from '../src/lib/mobile-match.ts';
+import { finOf, inStock, matchListings, normalizeNumber, parseInternal, stockNumberOf, type AsanaVehicle, type Listing } from '../src/lib/mobile-match.ts';
 import { adsOf, assertReadOnly, basicAuth, customerNumbers, toListing } from '../supabase/functions/mobile-sync/logic.ts';
 
 const task = (name: string, section: string, extra: Partial<AsanaVehicle> = {}): AsanaVehicle => ({
@@ -46,7 +46,7 @@ test('Abgleich: verkauft + online = muss offline', () => {
     [
       ad('W0LGT8EN0E1071474', null, '2026-11-10T00:00:00Z'),
       ad('WVWZZZ1KZ9W230372'),
-      ad(null, '10', '2026-11-05T00:00:00Z'), // ohne FIN, über die interne Nummer
+      { ...ad(null, '10', '2026-11-05T00:00:00Z'), title: 'AUDI A4 Avant' }, // ohne FIN, über die interne Nummer + Marke
       ad('WDD2050421R015508', null, '2026-11-03T00:00:00Z'),
       ad('WBA00000000999999'), // gibt es in Asana nicht
     ],
@@ -67,6 +67,31 @@ test('Abgleich: zweimal angekauft zählt die neueste Aufgabe; Nummer mit fremder
   assert.equal(r.ok.length, 1);
   assert.equal(r.offline.length, 0);
   assert.equal(r.unknown.length, 1);
+});
+
+test('Interne Nummer wie bei euch: „2093DK / #164“ = FIN-Stellen + Bestandsnummer', () => {
+  assert.deepEqual(parseInternal('2093DK / #164'), { fin: '2093', nr: '164' });
+  assert.deepEqual(parseInternal('7495AV / #108'), { fin: '7495', nr: '108' });
+  assert.deepEqual(parseInternal('1842DK / 543'), { fin: '1842', nr: '543' });
+  assert.deepEqual(parseInternal('#085'), { fin: null, nr: '85' });
+  assert.equal(finOf('Autowelt Prusseit / S400D / Vin... 198027 / #160'), '198027');
+});
+
+test('Wiederverwendete Bestandsnummer: anderes Auto wird nicht zugeordnet', () => {
+  const tasks = [
+    task('Audi A3 / Rößler / VIN: 060044 / #138 / EXPORT', 'Abgeschlossen', { completed: true }),
+    task('Citroen C2 / Laura Pinchuk / FIN: 403460 / CT / #158', 'Abgeschlossen', { completed: true }),
+    task('Audi A4 s-line / Jason Beer / FIN: 084172 / #10 / TS', 'FZG.-Disposition/ Werkstatt'),
+    task('Audi A6 / Dahmen / VIN: 073833 / #195 / ST', 'FZG.-Verkauf (Bestand)'),
+  ];
+  const l = (title: string, nr: string): Listing => ({ ...ad(null, nr), title });
+  const r = matchListings(
+    [l('MERCEDES-BENZ CLA 180', '9168DK / #138'), l('BMW 118i M SPORT', '5759DK / #158'), l('AUDI A4 Limo 40 TDI', '4172DK / #10'), l('AUDI A6 Avant 50 TDI', '3833DK / #960')],
+    tasks,
+  );
+  assert.deepEqual(r.offline.map((m) => m.task.name.split(' /')[0]), ['Audi A4 s-line']);
+  assert.deepEqual(r.ok.map((m) => m.task.name.split(' /')[0]), ['Audi A6']); // Nummer vertippt, FIN + Marke passen
+  assert.equal(r.unknown.length, 2);
 });
 
 test('mobile.de-Inserate lesen (Seller- und Such-API)', () => {
