@@ -96,7 +96,9 @@ test('Wiederverwendete Bestandsnummer: anderes Auto wird nicht zugeordnet', () =
 
 test('mobile.de-Inserate lesen (Seller- und Such-API)', () => {
   const seller = toListing({ mobileAdId: '123', vin: 'wvwzzz1kz9w230372', internalNumber: 35, make: 'Volkswagen', model: 'Golf', modelDescription: 'Golf 1.4 TSI', price: { consumerPriceGross: '12990.00' } });
-  assert.deepEqual(seller, { ad_id: '123', vin: 'WVWZZZ1KZ9W230372', internal_number: '35', title: 'Volkswagen Golf 1.4 TSI', price: 12990, url: 'https://suchen.mobile.de/fahrzeuge/details.html?id=123' });
+  assert.deepEqual(seller, { ad_id: '123', vin: 'WVWZZZ1KZ9W230372', internal_number: '35', title: 'Volkswagen Golf 1.4 TSI', price: 12990, url: 'https://suchen.mobile.de/fahrzeuge/details.html?id=123', image_count: null });
+  assert.equal(toListing({ mobileAdId: 1, images: [{}, {}] })?.image_count, 2);
+  assert.equal(toListing({ mobileAdId: 1, images: [] })?.image_count, 0);
   const search = toListing({ mobileAdId: 456, make: { localized: 'BMW' } as never, model: { localized: 'X3' } as never, detailPageUrl: 'https://x/1', price: { consumerPriceGross: 30000 } });
   assert.equal(search?.title, 'BMW X3');
   assert.equal(search?.vin, null);

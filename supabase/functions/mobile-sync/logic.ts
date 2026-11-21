@@ -29,6 +29,7 @@ type Ad = {
   model?: Text;
   modelDescription?: Text;
   detailPageUrl?: string | null;
+  images?: unknown[] | null;
   price?: { consumerPriceGross?: unknown; gross?: unknown; amount?: unknown; consumerPrice?: { amount?: unknown } } | null;
 };
 
@@ -39,6 +40,8 @@ export type ListingRow = {
   title: string;
   price: number | null;
   url: string | null;
+  /** Anzahl Bilder im Inserat (null = mobile.de hat keine Angabe geliefert). */
+  image_count: number | null;
 };
 
 /** Ein Inserat aus Seller-API oder Such-API in eine Zeile umwandeln (beide nutzen fast dieselben Felder). */
@@ -58,6 +61,7 @@ export function toListing(ad: Ad): ListingRow | null {
     title,
     price,
     url: ad.detailPageUrl || `https://suchen.mobile.de/fahrzeuge/details.html?id=${encodeURIComponent(ad_id)}`,
+    image_count: Array.isArray(ad.images) ? ad.images.length : null,
   };
 }
 
