@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       # GitHub schaltet Zeitpläne nach 60 Tagen ohne Code-Änderung ab. Das erneute Einschalten
