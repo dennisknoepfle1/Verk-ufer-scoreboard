@@ -11,7 +11,7 @@ name: Supabase einspielen
 on:
   push:
     branches: [main]
-    paths: ['supabase/migrations/**', 'supabase/functions/**', '.github/workflows/deploy-supabase.yml']
+    paths: ['supabase/migrations/**', 'supabase/functions/**', 'src/lib/process-checks.ts', 'src/lib/mobile-match.ts', '.github/workflows/deploy-supabase.yml']
   workflow_dispatch:
     inputs:
       functions:
@@ -68,6 +68,12 @@ jobs:
             fns="${{ github.event.inputs.functions }}"
           else
             fns=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- supabase/functions 2>/dev/null | cut -d/ -f3 | sort -u | tr '\n' ' ' || true)
+            # Funktionen, die geteilte App-Dateien mitnehmen (shared.txt), auch bei deren Änderung neu bereitstellen.
+            changed=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" 2>/dev/null || true)
+            for list in supabase/functions/*/shared.txt; do
+              [ -f "$list" ] || continue
+              while read -r f; do [ -n "$f" ] && grep -qx "$f" <<< "$changed" && fns="$fns $(basename "$(dirname "$list")")"; done < "$list"
+            done
           fi
           # Noch nie bereitgestellte Funktionen dazunehmen (nur wenn die Liste sicher geladen wurde).
           if [ -n "$deployed" ]; then
@@ -82,6 +88,9 @@ jobs:
             echo "stelle bereit: $fn"
             args=(-F "metadata={\"name\":\"$fn\",\"entrypoint_path\":\"index.ts\",\"verify_jwt\":false}")
             for f in supabase/functions/$fn/*.ts; do args+=(-F "file=@$f;filename=$(basename "$f")"); done
+            if [ -f "supabase/functions/$fn/shared.txt" ]; then
+              while read -r f; do [ -n "$f" ] && args+=(-F "file=@$f;filename=$(basename "$f")"); done < "supabase/functions/$fn/shared.txt"
+            fi
             out=$(curl -sS -w '\n%{http_code}' -X POST "$api/deploy?slug=$fn" -H "$auth" "${args[@]}")
             code=$(tail -1 <<< "$out")
             if [ "${code:0:1}" != "2" ]; then
