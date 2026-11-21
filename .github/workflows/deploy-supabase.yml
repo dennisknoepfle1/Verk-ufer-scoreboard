@@ -56,25 +56,40 @@ jobs:
           $sql
           ;
           insert into supabase_migrations.schema_migrations (version, name) values ('$version', '$name');
-          commit;" > /dev/null
+          commit;" > result.txt || { echo "::error::Einspielen von $base fehlgeschlagen: $(head -c 400 result.txt | tr '\n' ' ')"; exit 1; }
           done
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - name: Geänderte Edge Functions bereitstellen
+      - name: Edge Functions bereitstellen (geänderte und noch fehlende)
         run: |
-          set -euo pipefail
+          set -uo pipefail
+          api="https://api.supabase.com/v1/projects/$PROJECT_REF/functions"
+          auth="Authorization: Bearer $SUPABASE_ACCESS_TOKEN"
+          deployed=$(curl -sS "$api" -H "$auth" | jq -r '.[].slug' || true)
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             fns="${{ github.event.inputs.functions }}"
           else
-            fns=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- supabase/functions 2>/dev/null \
-                  | cut -d/ -f3 | sort -u | tr '\n' ' ' || true)
+            fns=$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" -- supabase/functions 2>/dev/null | cut -d/ -f3 | sort -u | tr '\n' ' ' || true)
           fi
-          for fn in $fns; do
+          # Noch nie bereitgestellte Funktionen dazunehmen (nur wenn die Liste sicher geladen wurde).
+          if [ -n "$deployed" ]; then
+            for dir in supabase/functions/*/; do
+              fn=$(basename "$dir")
+              grep -qx "$fn" <<< "$deployed" || fns="$fns $fn"
+            done
+          fi
+          failed=0
+          for fn in $(tr ' ' '\n' <<< "$fns" | sort -u); do
             [ -f "supabase/functions/$fn/index.ts" ] || continue
             echo "stelle bereit: $fn"
-            supabase functions deploy "$fn" --project-ref "$PROJECT_REF" --no-verify-jwt --use-api
+            args=(-F "metadata={\"name\":\"$fn\",\"entrypoint_path\":\"index.ts\",\"verify_jwt\":false}")
+            for f in supabase/functions/$fn/*.ts; do args+=(-F "file=@$f;filename=$(basename "$f")"); done
+            out=$(curl -sS -w '\n%{http_code}' -X POST "$api/deploy?slug=$fn" -H "$auth" "${args[@]}")
+            code=$(tail -1 <<< "$out")
+            if [ "${code:0:1}" != "2" ]; then
+              echo "::error::Bereitstellen von $fn fehlgeschlagen ($code): $(head -c 400 <<< "$out" | tr '\n' ' ')"
+              failed=1
+            fi
           done
+          exit $failed
       - name: mobile.de-Abruf einmal anstoßen
         run: |
           curl -sS -X POST "https://$PROJECT_REF.supabase.co/functions/v1/mobile-sync" -H 'Content-Type: application/json' -d '{}' || true
