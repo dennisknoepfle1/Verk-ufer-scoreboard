@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth';
 
 const NAV = [
   { href: '/admin', label: 'Verkäufe' },
+  { href: '/admin/prozesse', label: 'Prozessboard' },
   { href: '/admin/team', label: 'Team und Ziele' },
   { href: '/admin/statistik', label: 'Statistik' },
   { href: '/admin/provision', label: 'Provision' },

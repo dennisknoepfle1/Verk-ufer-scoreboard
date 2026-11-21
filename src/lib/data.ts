@@ -5,6 +5,7 @@ import type { BoardRow, Rates } from './scoring';
 import { supabase } from './supabase';
 import { groupBadges, type BadgeKey } from './badges';
 import type { Delivery } from './deliveries';
+import type { AsanaVehicle, Listing } from './mobile-match';
 import { financeOf } from './finance';
 
 export type Sale = {
@@ -188,6 +189,7 @@ export function useLive<T>(load: () => Promise<T>, deps: unknown[]) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'display_settings' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'kudos' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'asana_sync' }, run)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'mobile_sync' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'work_instructions' }, run)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'instruction_acks' }, run)
       .subscribe();
@@ -335,4 +337,42 @@ export async function fetchFinance() {
   if (error) throw error;
   const rows = (data ?? []) as Parameters<typeof financeOf>[0][];
   return { now: financeOf(rows[0]), prev: financeOf(rows[1]) };
+}
+
+// ---- Prozessboard · mobile.de-Abgleich ----
+
+export type MobileStatus = { last_attempt_at: string | null; last_success_at: string | null; last_error: string | null; listing_count: number };
+
+/** Inserate von mobile.de + Asana-Stand für den Abgleich. Ein Fehler hier betrifft nur diese Kachel. */
+export async function fetchMobileCheck() {
+  const [listings, status, tasks] = await Promise.all([
+    supabase.rpc('mobile_current'),
+    supabase.from('mobile_sync').select('last_attempt_at, last_success_at, last_error, listing_count').maybeSingle(),
+    supabase.rpc('asana_current'),
+  ]);
+  if (listings.error) throw listings.error;
+  if (status.error) throw status.error;
+  if (tasks.error) throw tasks.error;
+  return {
+    listings: (listings.data ?? []) as Listing[],
+    status: (status.data as MobileStatus | null) ?? null,
+    tasks: (tasks.data ?? []) as AsanaVehicle[],
+  };
+}
+
+export async function fetchMobileCustomers(): Promise<string> {
+  const { data, error } = await supabase.from('mobile_settings').select('customer_numbers').maybeSingle();
+  if (error) throw error;
+  return data?.customer_numbers ?? '';
+}
+
+export async function saveMobileCustomers(value: string) {
+  const { error } = await supabase.from('mobile_settings').update({ customer_numbers: value.trim() }).eq('id', true);
+  if (error) throw error;
+}
+
+/** „Jetzt abrufen“: stößt den mobile.de-Abruf sofort an (liest nur). */
+export async function syncMobileNow() {
+  const { error } = await supabase.functions.invoke('mobile-sync', { body: {} });
+  if (error) throw error;
 }
