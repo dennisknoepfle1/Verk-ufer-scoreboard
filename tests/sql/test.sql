@@ -421,4 +421,28 @@ do $$ begin
   assert (select count(*) from instruction_overview() where has_push is null) = 0, 'Push-Stand je Verkäufer';
 end $$;
 reset role;
+-- mobile.de-Abgleich: Stand speichern (nur Edge Function), FIN bleibt, nur Admins lesen
+select public.mobile_replace('[{"ad_id":"a1","vin":"WVWZZZ1KZ9W230372","internal_number":"35","title":"VW Golf","price":"12990"},{"ad_id":"a2","title":"BMW X3"}]'::jsonb) = 2 as mobile1 \gset
+select public.mobile_replace('[{"ad_id":"a1","vin":"","title":"VW Golf","price":"11990"}]'::jsonb) = 1 as mobile2 \gset
+do $$ begin
+  assert (select vin from mobile_listings where ad_id = 'a1') = 'WVWZZZ1KZ9W230372', 'FIN bleibt, wenn sie später fehlt';
+  assert (select count(*) from mobile_current()) = 1, 'nur Inserate aus dem letzten Abruf';
+  assert (select price from mobile_listings where ad_id = 'a1') = 11990, 'Preis aktuell';
+end $$;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000002', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert (select count(*) from mobile_current()) = 0, 'Verkäufer sehen keine Inserate';
+  begin
+    perform mobile_replace('[]'::jsonb);
+    assert false, 'Verkäufer dürfen nichts speichern';
+  exception when insufficient_privilege then null; end;
+end $$;
+reset role;
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+set role authenticated;
+do $$ begin
+  assert (select count(*) from mobile_current()) = 1, 'Admin sieht Inserate';
+end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;
