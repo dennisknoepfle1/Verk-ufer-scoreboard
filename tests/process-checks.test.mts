@@ -61,3 +61,19 @@ test('Prozessboard: ohne mobile.de-Abruf sind nur dessen Kacheln grau', () => {
   const r2 = runChecks({ tasks: [], times: [], listings: [ad('X', '1/#1', { image_count: null })], mobileReady: true }, NOW);
   assert.ok(get(r2, 'mobile-bilder').unavailable);
 });
+
+test('Morgen-Push: nur bei Rot, größte Zahl zuerst', async () => {
+  const { digestMessage } = await import('../src/lib/process-checks.ts');
+  const item = (warn = false) => ({ key: Math.random().toString(), title: 'x', detail: '', url: null, warn });
+  const c = (key: string, title: string, items: ReturnType<typeof item>[], extra = {}) => ({
+    key, title, group: 'Ordnung in Asana' as const, what: '', items, warnCount: items.filter((i) => i.warn).length, ...extra,
+  });
+  assert.equal(digestMessage([c('a', 'A', [item(true)])]), null);
+  const m = digestMessage([
+    c('a', 'A', [item()]),
+    c('b', 'B', [item(), item(), item(true)]),
+    c('c', 'C', [], { unavailable: 'noch keine Daten' }),
+  ]);
+  assert.equal(m?.title, 'Prozessboard: 2 Prozesse rot');
+  assert.equal(m?.body, 'B: 2 · A: 1');
+});

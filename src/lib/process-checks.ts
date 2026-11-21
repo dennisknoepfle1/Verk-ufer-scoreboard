@@ -253,3 +253,15 @@ export function runChecks(
 
 /** Rote Fälle einer Prüfung (gelbe zählen nicht). */
 export const redCount = (c: CheckResult) => c.items.length - (c.warnCount ?? 0);
+
+/** Morgen-Push an die Admins: nur wenn etwas rot ist. Liefert null, wenn alles sauber läuft. */
+export function digestMessage(checks: CheckResult[]): { title: string; body: string } | null {
+  const red = checks.filter((c) => !c.unavailable && redCount(c) > 0).sort((a, b) => redCount(b) - redCount(a));
+  if (!red.length) return null;
+  const lines = red.slice(0, 4).map((c) => `${c.title}: ${redCount(c)}`);
+  if (red.length > 4) lines.push(`+ ${red.length - 4} weitere`);
+  return {
+    title: `Prozessboard: ${red.length} ${red.length === 1 ? 'Prozess' : 'Prozesse'} rot`,
+    body: lines.join(' · '),
+  };
+}
