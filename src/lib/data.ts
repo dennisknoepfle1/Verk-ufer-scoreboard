@@ -6,6 +6,7 @@ import { supabase } from './supabase';
 import { groupBadges, type BadgeKey } from './badges';
 import type { Delivery } from './deliveries';
 import type { AsanaVehicle, Listing } from './mobile-match';
+import type { BoardListing, BoardTask, TaskTimes } from './process-checks';
 import { financeOf } from './finance';
 
 export type Sale = {
@@ -223,12 +224,13 @@ export type AsanaStatus = { last_attempt_at: string | null; last_success_at: str
 /** Auslieferungen aus Asana. Darf nie etwas blockieren: bei Fehlern null (Feld wird dann ausgeblendet). */
 export async function fetchDeliveries(): Promise<{ rows: Delivery[]; status: AsanaStatus | null } | null> {
   try {
+    // Seitenweise: Supabase liefert höchstens 1000 Zeilen je Anfrage, Asana hat mehr Aufgaben.
     const [rows, status] = await Promise.all([
-      supabase.rpc('asana_current'),
+      loadAll<Delivery>((a, b) => supabase.rpc('asana_current').range(a, b)),
       supabase.from('asana_sync').select('last_attempt_at, last_success_at, last_error, task_count').maybeSingle(),
     ]);
-    if (rows.error || status.error) return null;
-    return { rows: (rows.data ?? []) as Delivery[], status: (status.data as AsanaStatus | null) ?? null };
+    if (status.error) return null;
+    return { rows, status: (status.data as AsanaStatus | null) ?? null };
   } catch {
     return null;
   }
@@ -346,18 +348,12 @@ export type MobileStatus = { last_attempt_at: string | null; last_success_at: st
 /** Inserate von mobile.de + Asana-Stand für den Abgleich. Ein Fehler hier betrifft nur diese Kachel. */
 export async function fetchMobileCheck() {
   const [listings, status, tasks] = await Promise.all([
-    supabase.rpc('mobile_current'),
+    loadAll<Listing>((a, b) => supabase.rpc('mobile_current').range(a, b)),
     supabase.from('mobile_sync').select('last_attempt_at, last_success_at, last_error, listing_count').maybeSingle(),
-    supabase.rpc('asana_current'),
+    loadAll<AsanaVehicle>((a, b) => supabase.rpc('asana_current').range(a, b)),
   ]);
-  if (listings.error) throw listings.error;
   if (status.error) throw status.error;
-  if (tasks.error) throw tasks.error;
-  return {
-    listings: (listings.data ?? []) as Listing[],
-    status: (status.data as MobileStatus | null) ?? null,
-    tasks: (tasks.data ?? []) as AsanaVehicle[],
-  };
+  return { listings, status: (status.data as MobileStatus | null) ?? null, tasks };
 }
 
 export async function fetchMobileCustomers(): Promise<string> {
@@ -375,4 +371,33 @@ export async function saveMobileCustomers(value: string) {
 export async function syncMobileNow() {
   const { error } = await supabase.functions.invoke('mobile-sync', { body: {} });
   if (error) throw error;
+}
+
+/**
+ * Supabase liefert höchstens 1000 Zeilen pro Anfrage. Asana hat schon mehr Aufgaben (~1150),
+ * daher seitenweise laden, bis eine Seite nicht mehr voll ist.
+ */
+async function loadAll<T>(page: (from: number, to: number) => PromiseLike<{ data: unknown; error: unknown }>): Promise<T[]> {
+  const size = 1000;
+  const rows: T[] = [];
+  for (let from = 0; from < 20_000; from += size) {
+    const { data, error } = await page(from, from + size - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as T[];
+    rows.push(...batch);
+    if (batch.length < size) break;
+  }
+  return rows;
+}
+
+/** Alles fürs Prozessboard in einem Rutsch. mobile.de darf fehlen (dann sind nur dessen Kacheln grau). */
+export async function fetchProcessBoard() {
+  const [tasks, times, listings, status] = await Promise.all([
+    loadAll<BoardTask>((a, b) => supabase.rpc('asana_current').range(a, b)),
+    loadAll<TaskTimes>((a, b) => supabase.from('asana_lead_times').select('task_gid, eingang_at, section_since').order('task_gid').range(a, b)),
+    loadAll<BoardListing>((a, b) => supabase.rpc('mobile_current').range(a, b)).catch(() => null),
+    supabase.from('mobile_sync').select('last_attempt_at, last_success_at, last_error, listing_count').maybeSingle(),
+  ]);
+  const mobileStatus = status.error ? null : ((status.data as MobileStatus | null) ?? null);
+  return { tasks, times, listings, mobileStatus, mobileReady: listings != null && Boolean(mobileStatus?.last_success_at) };
 }

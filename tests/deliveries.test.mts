@@ -98,8 +98,8 @@ test('Standzeit: erster Eingang in Administration bis erste Auslieferung danach'
     mv('2026-10-07T10:13:00Z', 'Auszahlung/ Prüfung'),
     mv('2026-10-08T10:13:00Z', 'Buchhaltung'),
   ];
-  assert.deepEqual(leadTimeOf(st), { eingang_at: '2026-09-23T08:23:00Z', ausgeliefert_at: '2026-10-07T10:13:00Z', delivered_at: '2026-10-07T10:13:00Z', delivered_from: 'FZG.-Administration', delivered_skip: true, delivered_checked: true });
-  assert.deepEqual(leadTimeOf([mv('2026-09-21T09:49:00Z', 'FZG.-Disposition/ Werkstatt'), mv('2026-10-07T07:34:00Z', 'Auszahlung/ Prüfung')]), { eingang_at: null, ausgeliefert_at: null, delivered_at: '2026-10-07T07:34:00Z', delivered_from: 'FZG.-Disposition/ Werkstatt', delivered_skip: true, delivered_checked: true });
+  assert.deepEqual(leadTimeOf(st), { eingang_at: '2026-09-23T08:23:00Z', ausgeliefert_at: '2026-10-07T10:13:00Z', delivered_at: '2026-10-07T10:13:00Z', delivered_from: 'FZG.-Administration', delivered_skip: true, delivered_checked: true, section_since: '2026-10-08T10:13:00Z', section_checked: true });
+  assert.deepEqual(leadTimeOf([mv('2026-09-21T09:49:00Z', 'FZG.-Disposition/ Werkstatt'), mv('2026-10-07T07:34:00Z', 'Auszahlung/ Prüfung')]), { eingang_at: null, ausgeliefert_at: null, delivered_at: '2026-10-07T07:34:00Z', delivered_from: 'FZG.-Disposition/ Werkstatt', delivered_skip: true, delivered_checked: true, section_since: '2026-10-07T07:34:00Z', section_checked: true });
   // ausgeliefert = erster Wechsel in Auszahlung/Buchhaltung; aus „Auslieferung“ = regulär, sonst am Prozess vorbei
   const raus = [mv('2026-10-01T08:00:00Z', 'FZG.- Fertig'), mv('2026-10-02T08:00:00Z', 'Auslieferung'), mv('2026-10-03T08:00:00Z', 'FZG.- Fertig'), mv('2026-10-04T08:00:00Z', 'Auslieferung'), mv('2026-10-06T08:00:00Z', 'Auszahlung/ Prüfung'), mv('2026-10-07T08:00:00Z', 'Buchhaltung')];
   assert.equal(leadTimeOf(raus).delivered_at, '2026-10-06T08:00:00Z');
@@ -113,7 +113,11 @@ test('Standzeit: erster Eingang in Administration bis erste Auslieferung danach'
   assert.equal(needsLeadTime({ section: 'A' }, undefined), true);
   assert.equal(needsLeadTime({ section: 'A' }, { section_seen: 'A', ausgeliefert_at: null }), false);
   assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: null }), true);
-  assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: '2026-10-01T00:00:00Z' }), false);
+  assert.equal(needsLeadTime({ section: 'B', completed: true }, { section_seen: 'A', ausgeliefert_at: '2026-10-01T00:00:00Z' }), false);
+  // Prozessboard: offene Fahrzeuge brauchen „seit wann in dieser Spalte“, auch nach der Auslieferung
+  assert.equal(needsLeadTime({ section: 'B' }, { section_seen: 'A', ausgeliefert_at: '2026-10-01T00:00:00Z' }), true);
+  assert.equal(needsLeadTime({ section: 'A' }, { section_seen: 'A', ausgeliefert_at: '2026-10-01T00:00:00Z', section_checked: false }), true, 'Spaltenzeit einmal nachholen');
+  assert.equal(needsLeadTime({ section: 'A', completed: true }, { section_seen: 'A', ausgeliefert_at: null, section_checked: false }), false, 'erledigte nicht');
   assert.equal(needsLeadTime({ section: 'A' }, { section_seen: 'A', ausgeliefert_at: null, delivered_checked: false }), true, 'Auslieferdatum einmal nachholen');
 });
 

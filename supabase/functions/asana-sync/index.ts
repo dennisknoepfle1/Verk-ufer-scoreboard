@@ -94,7 +94,7 @@ async function fetchStories(token: string, taskGid: string) {
 
 async function updateLeadTimes(token: string, rows: ReturnType<typeof toRow>[]) {
   const deadline = Date.now() + 90_000;
-  const { data: known, error } = await db.from('asana_lead_times').select('task_gid, section_seen, ausgeliefert_at, delivered_checked');
+  const { data: known, error } = await db.from('asana_lead_times').select('task_gid, section_seen, ausgeliefert_at, delivered_checked, section_checked');
   if (error) throw new Error(error.message);
   const byGid = new Map((known ?? []).map((k) => [k.task_gid as string, k]));
   // Offene und neue Fahrzeuge zuerst, beim ersten Mal kommt der Rest über die nächsten Abrufe.

@@ -84,6 +84,7 @@ async function fillVins(auth: string, rows: ListingRow[]) {
           const ad = toListing((await get(auth, `/search-api/ad/${encodeURIComponent(r.ad_id)}`)) as Parameters<typeof toListing>[0]);
           if (ad?.vin) r.vin = ad.vin;
           if (!r.internal_number && ad?.internal_number) r.internal_number = ad.internal_number;
+          if (r.image_count == null && ad?.image_count != null) r.image_count = ad.image_count;
         } catch {
           // beim nächsten Abruf erneut
         }
