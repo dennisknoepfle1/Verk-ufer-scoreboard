@@ -3,9 +3,9 @@
 -- Die Edge Function process-digest und process_digest_trigger() bleiben liegen, werden aber nicht mehr aufgerufen.
 do $$
 begin
-  if exists (select 1 from pg_extension where extname = 'pg_cron')
-     and exists (select 1 from cron.job where jobname = 'process-digest') then
-    perform cron.unschedule('process-digest');
+  -- verschachtelt, damit cron.job nur angefasst wird, wo pg_cron existiert (nicht in den lokalen Tests)
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    execute $q$select cron.unschedule(jobid) from cron.job where jobname = 'process-digest'$q$;
   end if;
 end;
 $$;
