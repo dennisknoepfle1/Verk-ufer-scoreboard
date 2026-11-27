@@ -24,6 +24,8 @@ export async function sendSale(s: PendingSale): Promise<SendResult & ('ok' | 'du
       bank_commission: s.bank_commission,
       winter_wheels_price: s.winter_wheels_price,
       registration_price: s.registration_price,
+      // Nur mitsenden, wenn gewählt: ältere Einträge in der Warteschlange kennen das Feld nicht.
+      ...(s.certified_class ? { certified_class: s.certified_class, certified_price: s.certified_price ?? 0 } : {}),
       sold_on: s.sold_on,
     });
     if (!error) return 'ok';

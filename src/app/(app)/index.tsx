@@ -8,9 +8,9 @@ import { usePendingSales } from '@/lib/pending';
 import { KudosFeed } from '@/components/KudosFeed';
 import { PushCard } from '@/components/PushCard';
 import { BADGES, badgeIcons, type BadgeKey } from '@/lib/badges';
-import { fetchBadges, fetchFeed, fetchLeaderboard, fetchRatings, fetchTeamProgress, useLive } from '@/lib/data';
-import { dateLabel, eur, firstName, monthLabel, monthStart } from '@/lib/format';
-import { gapToNextRank, goalProgress } from '@/lib/scoring';
+import { fetchBadges, fetchCurrentRates, fetchFeed, fetchLeaderboard, fetchRatings, fetchSales, fetchTeamProgress, useLive } from '@/lib/data';
+import { dateLabel, eur, eurCents, firstName, monthLabel, monthStart, shiftMonth } from '@/lib/format';
+import { gapToNextRank, goalProgress, isFlatModel } from '@/lib/scoring';
 import { stars } from '@/lib/stats';
 
 export default function Scoreboard() {
@@ -18,14 +18,17 @@ export default function Scoreboard() {
   const { saved, queued } = useLocalSearchParams<{ saved?: string; queued?: string }>();
   const month = monthStart();
   const { data, error, reload } = useLive(async () => {
-    const [rows, team, ratings, badges, feed] = await Promise.all([
+    const [rows, team, ratings, badges, feed, rates, mySales] = await Promise.all([
       fetchLeaderboard(month),
       fetchTeamProgress(month),
       fetchRatings(month),
       fetchBadges(month).catch((): Record<string, BadgeKey[]> => ({})),
       fetchFeed(10).catch(() => []),
+      fetchCurrentRates().catch(() => null),
+      // Verkäufer sehen hier nur ihre eigenen Verkäufe (Zugriffsregel der Datenbank).
+      fetchSales(month, shiftMonth(month, 1)).catch(() => []),
     ]);
-    return { rows, team, ratings, badges, feed };
+    return { rows, team, ratings, badges, feed, rates, mySales };
   }, [month]);
   const rows = data?.rows;
   const { pending, flush, discard } = usePendingSales(profile?.id, reload);
@@ -74,6 +77,10 @@ export default function Scoreboard() {
   const ratings = data?.ratings ?? {};
   const badges = data?.badges ?? {};
   const myBadges = profile ? badges[profile.id] ?? [] : [];
+  const rates = data?.rates;
+  const flat = rates ? isFlatModel(rates) : false;
+  const certifiedSales = (data?.mySales ?? []).filter((s) => s.seller_id === profile?.id && s.certified_price > 0);
+  const certifiedBonus = rates ? certifiedSales.reduce((a, s) => a + Math.round(s.certified_price * rates.certified_pct) / 100, 0) : 0;
 
   return (
     <Screen>
@@ -101,10 +108,32 @@ export default function Scoreboard() {
               <CountUp value={me.vehicles} style={styles.meValue} />
             </View>
             <View>
-              <Text style={styles.meLabel}>Deine Provision</Text>
+              <Text style={styles.meLabel}>Deine Provision{flat ? ' (brutto)' : ''}</Text>
               <CountUp value={me.commission} format={eur} style={styles.meValue} duration={1400} />
             </View>
           </View>
+        </View>
+      )}
+
+      {flat && rates && me && (
+        <View style={styles.goal} {...ui('card')}>
+          <Text style={styles.goalLabel}>So setzt sich deine Provision zusammen</Text>
+          <View style={styles.row}>
+            <Text style={{ color: colors.fg }}>
+              {me.vehicles} {me.vehicles === 1 ? 'Fahrzeug' : 'Fahrzeuge'} × {eur(rates.base_amount)}
+            </Text>
+            <Text style={styles.goalValue}>{eur(me.vehicles * rates.base_amount)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={{ color: colors.fg }}>
+              Zertifizierter Gebrauchtwagen{certifiedSales.length ? ` (${certifiedSales.length}×, ${String(rates.certified_pct).replace('.', ',')} %)` : ''}
+            </Text>
+            <Text style={styles.goalValue}>{certifiedBonus ? `+ ${eurCents(certifiedBonus)}` : '–'}</Text>
+          </View>
+          <Muted>
+            Pro Fahrzeug gibt es {eur(rates.base_amount)} brutto. Für Winterräder, Zulassung und Finanzierung gibt es kein Einzelgeld mehr, sie
+            zählen weiter für deine Quote. Mehr verdienst du nur mit dem zertifizierten Gebrauchtwagen.
+          </Muted>
         </View>
       )}
 

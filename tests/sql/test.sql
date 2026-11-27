@@ -445,4 +445,29 @@ do $$ begin
   assert (select count(*) from mobile_current()) = 1, 'Admin sieht Inserate';
 end $$;
 reset role;
+-- Provision ab November 2026: 600 € je Fahrzeug, nur zertifizierter Gebrauchtwagen bringt 10 % extra.
+-- Neue Verkäufe rechnen mit den Sätzen, die am Verkaufstag galten.
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-00000000000a', false) is not null as login \gset
+set role authenticated;
+insert into sales (vehicle, bank_commission, winter_wheels_price, sold_on, seller_id)
+  values ('Nachtrag November', 900, 1000, '2026-11-05', '00000000-0000-0000-0000-000000000002');
+insert into commission_rates (base_amount, bank_pct, winter_wheels_pct, registration_pct, certified_pct) values (600, 0, 0, 0, 10);
+insert into sales (vehicle, bank_commission, winter_wheels_price, registration_price, certified_class, certified_price, seller_id)
+  values ('Zertifiziert', 900, 1000, 200, 'mittel', 549, '00000000-0000-0000-0000-000000000002');
+insert into sales (vehicle, bank_commission, seller_id) values ('Ohne Zertifikat', 900, '00000000-0000-0000-0000-000000000002');
+do $$ begin
+  assert (select commission from sales where vehicle = 'Nachtrag November') = 600, 'Nachtrag sollte Sätze des Verkaufstags nutzen';
+  assert (select commission from sales where vehicle = 'Zertifiziert') = 654.90, '600 + 10 % von 549';
+  assert (select commission from sales where vehicle = 'Ohne Zertifikat') = 600, 'Bankprovision gibt kein Einzelgeld mehr';
+  assert (select winter_wheels_price from sales where vehicle = 'Zertifiziert') = 1000, 'Winterräder bleiben erfasst';
+  begin
+    insert into sales (vehicle, certified_class, seller_id) values ('Kaputt', 'ober', '00000000-0000-0000-0000-000000000002');
+    assert false, 'Zertifikat ohne Preis hätte scheitern müssen';
+  exception when check_violation then null; end;
+end $$;
+update sales set certified_class = 'ober', certified_price = 799 where vehicle = 'Ohne Zertifikat';
+do $$ begin
+  assert (select commission from sales where vehicle = 'Ohne Zertifikat') = 679.90, 'Korrektur rechnet Zertifikat ein';
+end $$;
+reset role;
 select 'ALLE SQL-TESTS OK' as result;
