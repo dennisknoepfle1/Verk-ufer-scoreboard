@@ -241,7 +241,7 @@ export default function Dashboard() {
           </View>
         </View>
 
-        {/* rechts: Zusatzgeschäft im Monat (gleiche Rechnung wie Admin > Statistik); die Zeilen teilen sich die Höhe gleichmäßig */}
+        {/* rechts: Zusatzgeschäft im Monat (gleiche Rechnung wie Admin > Statistik, dazu zertifizierter Gebrauchtwagen); die Zeilen teilen sich die Höhe gleichmäßig, das 3D-Feld bleibt gleich groß */}
         <View style={[styles.panel, { flex: 1, padding: f(14), gap: f(6) }]} {...ui('tv-row')}>
           <View style={styles.between}>
             <Text style={[styles.panelTitle, { fontSize: f(14) }]}>ZUSATZGESCHÄFT</Text>
@@ -249,7 +249,7 @@ export default function Dashboard() {
           </View>
           {(() => {
             const n = extras?.now.vehicles ?? 0;
-            const rate = (key: 'winterRate' | 'registrationRate' | 'financedRate') => {
+            const rate = (key: 'winterRate' | 'registrationRate' | 'financedRate' | 'certifiedRate') => {
               const r = extras?.now[key] ?? null;
               return { value: pct(r), fill: r ?? 0, sub: `${r == null || !extras ? 'Noch keine Verkäufe' : `${Math.round(r * n)} von ${n}`} · Vormonat ${pct(extras?.prev[key] ?? null)}` };
             };
@@ -266,12 +266,14 @@ export default function Dashboard() {
               { label: 'Winterräder', ...rate('winterRate') },
               { label: 'Zulassung', ...rate('registrationRate') },
               { label: 'Finanzierung', ...rate('financedRate') },
+              { label: 'Zertifizierter GW', ...rate('certifiedRate') },
               { label: 'Umsatz Winterräder', key: 'wr€', ...money(extras ? extras.now.winterRevenue : null, extras ? extras.prev.winterRevenue : null, '') },
               { label: 'Umsatz Zulassung', key: 'zl€', ...money(extras ? extras.now.registrationRevenue : null, extras ? extras.prev.registrationRevenue : null, '') },
+              { label: 'Umsatz Zertifikate', key: 'zg€', ...money(extras ? extras.now.certifiedRevenue : null, extras ? extras.prev.certifiedRevenue : null, '') },
               { label: 'Ø Bankprovision', ...money(extras?.now.avgBankCommission ?? null, extras?.prev.avgBankCommission ?? null, 'je Verkauf') },
             ];
             return rows.map((row) => (
-              <View key={'key' in row ? row.key : row.label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(3), paddingHorizontal: f(10), gap: f(3), borderRadius: f(8) }]}>
+              <View key={'key' in row ? row.key : row.label} style={[styles.listRow, { flex: 1, minHeight: 0, flexDirection: 'column', alignItems: 'stretch', justifyContent: 'center', paddingVertical: f(2), paddingHorizontal: f(10), gap: f(2), borderRadius: f(8) }]}>
                 <View style={[styles.between, { alignItems: 'center', gap: f(6) }]}>
                   <View style={{ flexShrink: 1, minWidth: 0 }}>
                     <Text style={[styles.fg, { fontSize: f(14), lineHeight: f(17) }]} numberOfLines={1}>{row.label}</Text>

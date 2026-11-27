@@ -7,6 +7,7 @@ export type StatSale = {
   bank_commission: number;
   winter_wheels_price: number;
   registration_price: number;
+  certified_price?: number; // Zertifizierter Gebrauchtwagen (seit November 2026), 0 = nicht verkauft
   commission: number;
   customer_rating?: number | null;
 };
@@ -21,6 +22,9 @@ export type Summary = {
   avgBankCommission: number | null; // Ø Bankprovision je Verkauf
   winterRevenue: number; // Summe Verkaufspreise Winterräder
   registrationRevenue: number; // Summe Verkaufspreise Zulassung
+  certifiedRate: number | null; // Anteil der Verkäufe mit zertifiziertem Gebrauchtwagen, 0..1
+  certifiedCount: number;
+  certifiedRevenue: number; // Summe Verkaufspreise Zertifikate
   commission: number;
   avgRating: number | null; // Ø Kundenbewertung (1–5) der bewerteten Verkäufe
   ratingCount: number;
@@ -61,6 +65,9 @@ export function summarize(sales: StatSale[]): Summary {
     avgBankCommission: n ? sales.reduce((a, s) => a + s.bank_commission, 0) / n : null,
     winterRevenue: sales.reduce((a, s) => a + s.winter_wheels_price, 0),
     registrationRevenue: sales.reduce((a, s) => a + s.registration_price, 0),
+    certifiedRate: share((s) => (s.certified_price ?? 0) > 0),
+    certifiedCount: sales.filter((s) => (s.certified_price ?? 0) > 0).length,
+    certifiedRevenue: sales.reduce((a, s) => a + (s.certified_price ?? 0), 0),
     commission: sales.reduce((a, s) => a + s.commission, 0),
     avgRating: rated.length ? rated.reduce((a, s) => a + (s.customer_rating ?? 0), 0) / rated.length : null,
     ratingCount: rated.length,
