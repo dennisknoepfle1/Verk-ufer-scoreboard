@@ -8,6 +8,8 @@ export type PendingSale = {
   bank_commission: number;
   winter_wheels_price: number;
   registration_price: number;
+  certified_class?: 'klein' | 'mittel' | 'ober' | null; // zertifizierter Gebrauchtwagen (seit November 2026)
+  certified_price?: number;
   sold_on: string; // Tag der Eingabe, nicht der Übertragung
   queued_at: string;
   error?: string; // vom Server abgelehnt (nicht Netzwerk): bleibt stehen, bis es klappt oder gelöscht wird

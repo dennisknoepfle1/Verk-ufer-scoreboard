@@ -6,13 +6,31 @@ export type Rates = {
   bank_pct: number;
   winter_wheels_pct: number;
   registration_pct: number;
+  /** Anteil am Verkaufspreis „Zertifizierter Gebrauchtwagen“ (seit November 2026). */
+  certified_pct: number;
 };
 
 export type SaleInput = {
   bank_commission: number;
   winter_wheels_price: number;
   registration_price: number;
+  certified_price?: number;
 };
+
+export type CertifiedClass = 'klein' | 'mittel' | 'ober';
+
+/** Zertifizierter Gebrauchtwagen: Verkaufspreis je Fahrzeugklasse (Dennis, 27.11.2026). */
+export const CERTIFIED: { key: CertifiedClass; label: string; price: number }[] = [
+  { key: 'klein', label: 'Kleinwagen', price: 399 },
+  { key: 'mittel', label: 'Mittelklasse', price: 549 },
+  { key: 'ober', label: 'Oberklasse', price: 799 },
+];
+
+export const certifiedPrice = (c: CertifiedClass | null | undefined) => CERTIFIED.find((x) => x.key === c)?.price ?? 0;
+export const certifiedLabel = (c: string | null | undefined) => CERTIFIED.find((x) => x.key === c)?.label ?? null;
+
+/** Festbetrag je Fahrzeug statt Anteilen: Winterräder, Zulassung und Bankprovision bringen kein Einzelgeld. */
+export const isFlatModel = (r: Rates) => r.bank_pct === 0 && r.winter_wheels_pct === 0 && r.registration_pct === 0;
 
 export type BoardRow = {
   seller_id: string;
@@ -30,7 +48,8 @@ export function calcCommission(sale: SaleInput, r: Rates): number {
     r.base_amount +
       (sale.bank_commission * r.bank_pct) / 100 +
       (sale.winter_wheels_price * r.winter_wheels_pct) / 100 +
-      (sale.registration_price * r.registration_pct) / 100,
+      (sale.registration_price * r.registration_pct) / 100 +
+      ((sale.certified_price ?? 0) * (r.certified_pct ?? 0)) / 100,
   );
 }
 

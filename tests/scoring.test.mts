@@ -1,13 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { calcCommission, gapToNextRank, goalProgress, parseEuro, rankBarShare, type BoardRow } from '../src/lib/scoring.ts';
+import { calcCommission, certifiedPrice, isFlatModel, gapToNextRank, goalProgress, parseEuro, rankBarShare, type BoardRow } from '../src/lib/scoring.ts';
 
-const rates = { base_amount: 100, bank_pct: 20, winter_wheels_pct: 10, registration_pct: 10 };
+const rates = { base_amount: 100, bank_pct: 20, winter_wheels_pct: 10, registration_pct: 10, certified_pct: 0 };
 
 test('Provision: Grund + Anteile, gleich wie in der Datenbank', () => {
   assert.equal(calcCommission({ bank_commission: 500, winter_wheels_price: 1000, registration_price: 200 }, rates), 320);
   assert.equal(calcCommission({ bank_commission: 0, winter_wheels_price: 0, registration_price: 0 }, rates), 100);
   assert.equal(calcCommission({ bank_commission: 333.33, winter_wheels_price: 0, registration_price: 0 }, rates), 166.67);
+});
+
+test('Provision ab November 2026: 600 € je Fahrzeug + 10 % zertifizierter Gebrauchtwagen', () => {
+  const flat = { base_amount: 600, bank_pct: 0, winter_wheels_pct: 0, registration_pct: 0, certified_pct: 10 };
+  assert.equal(isFlatModel(flat), true);
+  assert.equal(isFlatModel(rates), false);
+  assert.equal(calcCommission({ bank_commission: 900, winter_wheels_price: 1000, registration_price: 200 }, flat), 600);
+  assert.equal(calcCommission({ bank_commission: 0, winter_wheels_price: 0, registration_price: 0, certified_price: certifiedPrice('klein') }, flat), 639.9);
+  assert.equal(calcCommission({ bank_commission: 0, winter_wheels_price: 0, registration_price: 0, certified_price: certifiedPrice('mittel') }, flat), 654.9);
+  assert.equal(calcCommission({ bank_commission: 0, winter_wheels_price: 0, registration_price: 0, certified_price: certifiedPrice('ober') }, flat), 679.9);
+  assert.equal(certifiedPrice(null), 0);
 });
 
 const row = (id: string, vehicles: number, rank: number): BoardRow => ({

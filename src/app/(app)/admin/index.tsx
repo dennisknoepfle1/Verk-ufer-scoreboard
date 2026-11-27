@@ -9,6 +9,7 @@ import { PushCard } from '@/components/PushCard';
 import { Button, Card, colors, H1, H2, Muted, Notice, Screen } from '@/components/ui';
 import { fetchFeed, fetchLeaderboard, fetchSales, useLive } from '@/lib/data';
 import { dateLabel, eur, monthStart, shiftMonth, todayIso } from '@/lib/format';
+import { certifiedLabel } from '@/lib/scoring';
 import { stars, summarize } from '@/lib/stats';
 import { supabase } from '@/lib/supabase';
 
@@ -92,6 +93,7 @@ export default function AdminSales() {
                 <Text style={[styles.cell, styles.r, { width: 110 }]}>{eur(s.bank_commission)}</Text>
                 <Text style={[styles.cell, styles.r, { width: 110 }]}>{s.winter_wheels_price ? eur(s.winter_wheels_price) : '–'}</Text>
                 <Text style={[styles.cell, styles.r, { width: 100 }]}>{s.registration_price ? eur(s.registration_price) : '–'}</Text>
+                <Text style={[styles.cell, { width: 150 }]} numberOfLines={1}>{s.certified_class ? `${certifiedLabel(s.certified_class)} · ${eur(s.certified_price)}` : '–'}</Text>
                 <Text style={[styles.cell, styles.r, { width: 100, fontWeight: '700' }]}>{eur(s.commission)}</Text>
                 <View style={{ width: 140, paddingLeft: 12 }}>
                   <StarInput value={s.customer_rating} onChange={(v) => rate(s.id, v)} label={`Kundenbewertung ${s.vehicle}`} />
@@ -117,6 +119,7 @@ const COLS = [
   { key: 'b', label: 'Bankprov.', w: 110, right: true },
   { key: 'w', label: 'Winterräder', w: 110, right: true },
   { key: 'z', label: 'Zulassung', w: 100, right: true },
+  { key: 'c', label: 'Zertifiziert', w: 150 },
   { key: 'p', label: 'Provision', w: 100, right: true },
   { key: 's', label: 'Bewertung', w: 140 },
   { key: 'x', label: '', w: 120 },

@@ -1,10 +1,11 @@
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BrandBar, Button, Card, Field, H1, Muted, Notice, Screen } from '@/components/ui';
+import { BrandBar, Button, Card, colors, Field, H1, Muted, Notice, Screen } from '@/components/ui';
 import { fetchCurrentRates, type RatesRow } from '@/lib/data';
 import { eurCents } from '@/lib/format';
-import { calcCommission, parseEuro } from '@/lib/scoring';
+import { calcCommission, CERTIFIED, certifiedPrice, isFlatModel, parseEuro, type CertifiedClass } from '@/lib/scoring';
 import { useAuth } from '@/lib/auth';
 import { enqueue, newClientId, type PendingSale } from '@/lib/offline';
 import { isOnline, kv, sendSale } from '@/lib/pending';
@@ -16,6 +17,7 @@ export default function NewSale() {
   const [bank, setBank] = useState('');
   const [winter, setWinter] = useState('');
   const [registration, setRegistration] = useState('');
+  const [certified, setCertified] = useState<CertifiedClass | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +30,11 @@ export default function NewSale() {
     winter_wheels_price: parseEuro(winter),
     registration_price: parseEuro(registration),
   };
-  const preview = rates ? calcCommission(input, rates) : null;
+  const certifiedAmount = certifiedPrice(certified);
+  const preview = rates ? calcCommission({ ...input, certified_price: certifiedAmount }, rates) : null;
+  const flat = rates ? isFlatModel(rates) : false;
+  const certifiedBonus = rates ? Math.round(certifiedAmount * rates.certified_pct) / 100 : 0;
+  const quoteHint = flat ? 'Zählt für die Quote, gibt aber keine Extra-Provision. ' : '';
 
   async function save() {
     setError(null);
@@ -43,6 +49,7 @@ export default function NewSale() {
       user_id: profile.id,
       vehicle: vehicle.trim(),
       ...input,
+      ...(certified ? { certified_class: certified, certified_price: certifiedAmount } : {}),
       // Verkaufstag ist der Tag der Eingabe, auch wenn erst später übertragen wird.
       sold_on: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`,
       queued_at: now.toISOString(),
@@ -69,16 +76,40 @@ export default function NewSale() {
         <Field label="Fahrzeug" placeholder="z. B. VW Golf 8 Life" value={vehicle} onChangeText={setVehicle} />
         <Field
           label="Bankprovision gesamt (€)"
-          hint="Inklusive Provision der Zusatzprodukte. 0, wenn ohne Finanzierung."
+          hint={`${quoteHint}Inklusive Provision der Zusatzprodukte. 0, wenn ohne Finanzierung.`}
           keyboardType="decimal-pad"
           placeholder="0"
           value={bank}
           onChangeText={setBank}
         />
-        <Field label="Verkaufspreis Winterräder (€)" hint="0, wenn nicht verkauft." keyboardType="decimal-pad" placeholder="0" value={winter} onChangeText={setWinter} />
-        <Field label="Verkaufspreis Zulassung (€)" hint="0, wenn nicht verkauft." keyboardType="decimal-pad" placeholder="0" value={registration} onChangeText={setRegistration} />
-        {preview != null ? (
-          <Notice tone="good">Deine Provision für diesen Verkauf: {eurCents(preview)}</Notice>
+        <Field label="Verkaufspreis Winterräder (€)" hint={`${quoteHint}0, wenn nicht verkauft.`} keyboardType="decimal-pad" placeholder="0" value={winter} onChangeText={setWinter} />
+        <Field label="Verkaufspreis Zulassung (€)" hint={`${quoteHint}0, wenn nicht verkauft.`} keyboardType="decimal-pad" placeholder="0" value={registration} onChangeText={setRegistration} />
+        <View style={{ gap: 6 }}>
+          <Text style={styles.label}>Zertifizierter Gebrauchtwagen</Text>
+          <View style={styles.choices}>
+            {[{ key: null, label: 'Nicht verkauft', price: 0 }, ...CERTIFIED].map((c) => {
+              const on = certified === c.key;
+              return (
+                <Pressable
+                  key={c.key ?? 'none'}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected: on }}
+                  onPress={() => setCertified(c.key)}
+                  style={[styles.choice, on && styles.choiceOn]}
+                >
+                  <Text style={[styles.choiceText, on && styles.choiceTextOn]}>{c.label}</Text>
+                  {c.price > 0 && <Text style={[styles.choicePrice, on && styles.choiceTextOn]}>{eurCents(c.price)}</Text>}
+                </Pressable>
+              );
+            })}
+          </View>
+          {rates && rates.certified_pct > 0 && <Text style={styles.hint}>Davon bekommst du {String(rates.certified_pct).replace('.', ',')} % Provision.</Text>}
+        </View>
+        {preview != null && rates ? (
+          <Notice tone="good">
+            Deine Provision für diesen Verkauf: {eurCents(preview)}
+            {flat ? ` brutto (${eurCents(rates.base_amount)} je Fahrzeug${certifiedBonus ? ` + ${eurCents(certifiedBonus)} Zertifizierter Gebrauchtwagen` : ''}). Für Winterräder, Zulassung und Finanzierung gibt es kein Einzelgeld.` : ''}
+          </Notice>
         ) : (
           <Muted>Die Provision wird beim Speichern berechnet.</Muted>
         )}
@@ -89,3 +120,14 @@ export default function NewSale() {
     </Screen>
   );
 }
+
+const styles = StyleSheet.create({
+  label: { fontWeight: '600', fontSize: 14, color: colors.fg },
+  hint: { fontSize: 12, color: colors.muted },
+  choices: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  choice: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: colors.surface, alignItems: 'center' },
+  choiceOn: { backgroundColor: colors.accent, borderColor: colors.accent },
+  choiceText: { fontWeight: '600', color: colors.fg },
+  choicePrice: { fontSize: 12, color: colors.muted },
+  choiceTextOn: { color: '#fff' },
+});

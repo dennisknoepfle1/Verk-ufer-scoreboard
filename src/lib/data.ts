@@ -17,6 +17,8 @@ export type Sale = {
   bank_commission: number;
   winter_wheels_price: number;
   registration_price: number;
+  certified_class: string | null;
+  certified_price: number;
   commission: number;
   customer_rating: number | null;
   profiles?: { full_name: string } | null;
@@ -111,6 +113,7 @@ export async function fetchCurrentRates(): Promise<RatesRow | null> {
     bank_pct: num(data.bank_pct),
     winter_wheels_pct: num(data.winter_wheels_pct),
     registration_pct: num(data.registration_pct),
+    certified_pct: num(data.certified_pct),
   };
 }
 
@@ -128,6 +131,7 @@ export async function fetchSales(month: string, nextMonth: string): Promise<Sale
     bank_commission: num(s.bank_commission),
     winter_wheels_price: num(s.winter_wheels_price),
     registration_price: num(s.registration_price),
+    certified_price: num(s.certified_price),
     commission: num(s.commission),
   }));
 }
