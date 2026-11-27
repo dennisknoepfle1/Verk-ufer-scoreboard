@@ -44,6 +44,7 @@ export default function AdminSales() {
 
   const sales = (data?.sales ?? []).map((s) => (s.id in rating ? { ...s, customer_rating: rating[s.id] } : s));
   const avg = summarize(sales.map((s) => ({ ...s, seller_name: '' }))).avgRating;
+  const certified = sales.filter((s) => s.certified_price > 0);
   const board = data?.board ?? [];
   const withGoal = board.filter((r) => r.target_vehicles);
   const kpis = [
@@ -53,6 +54,7 @@ export default function AdminSales() {
       ? ['Bankprovision heute', eur(sales.filter((s) => s.sold_on === todayIso()).reduce((a, s) => a + s.bank_commission, 0))]
       : ['Provision gesamt', eur(sales.reduce((a, s) => a + s.commission, 0))],
     ['Bankprovision gesamt', eur(sales.reduce((a, s) => a + s.bank_commission, 0))],
+    ['Zertifizierte GW', `${certified.length} · ${eur(certified.reduce((a, s) => a + s.certified_price, 0))}`],
     ['Ø Kundenbewertung', stars(avg)],
     ['Monatsziel erreicht', `${withGoal.filter((r) => r.vehicles >= (r.target_vehicles ?? 0)).length} von ${withGoal.length}`],
   ];
